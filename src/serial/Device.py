@@ -42,11 +42,11 @@ class Device(object):
             self.Streams = {0:None,1:None}
 
             # Buffer of data\
-            self.Buff = numpy.array([0]*1024, numpy.complex64)
+            self.Buff = numpy.array([0]*100, numpy.complex64)
         return self.instance
 
     # This will start a stream
-    def start(self,flag,sample_rate,freqency,channel):
+    def start(self,flag,sample_rate,freqency,channel,sample_size):
         # call global vars
         global RX,TX
 
@@ -70,6 +70,9 @@ class Device(object):
         # setup stream
         self.Streams[flag] = self.Radio.setupStream(f,SOAPY_SDR_CF32,[channel])
 
+        # Initialize sample buffer
+        self.Buff = numpy.array([0]*sample_size, numpy.complex64)
+
         # start stream
         self.Radio.activateStream(self.Streams[flag])
 
@@ -78,6 +81,9 @@ class Device(object):
         # stop the stream
         self.Radio.deactivateStream(self.Streams[flag])
         self.Radio.closeStream(self.Streams[flag])
+
+    def get_arr(self):
+        return self.Buff
 
     # Collect data from the read stream that started
     def read(self):
