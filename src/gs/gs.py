@@ -186,11 +186,11 @@ class gs(object):
 
                 # handle message if it is setting values
                 if mes.get_command() == "LOCATION":
-                    self.Location = mes.Data
+                    self.Location = mes.data
                 elif mes.get_command()  == "PRESSURE":
-                    self.Pressure = mes.Data
+                    self.Pressure = mes.data
                 elif mes.get_command() == "TEMPERATURE":
-                    self.Temperature = mes.Data
+                    self.Temperature = mes.data
 
                 try:
                     # try to run the subsription message

@@ -28,36 +28,41 @@ class Message(object):
     def __init__(self,command = "OTHER",data = ""):
         super(Message, self).__init__()
         # set the command
-        self.Command = command
+        self._command = command
 
         # set the data of this message (if any)
-        self.Data = data
+        self._data = data
 
     #---------------------------------------------------------------------------
     # Getters
     #---------------------------------------------------------------------------
 
     # return command set in this message
-    def get_command(self):
-        return self.Command
+    @property
+    def command(self):
+        return self._command
 
     # return the data in the body of this message
-    def get_data(self):
-        return self.Data
+    @property
+    def data(self):
+        return self._data
 
     # return the priority of this message
-    def get_priority(self):
-        return Command[self.Command].value
+    @property
+    def priority(self):
+        return Command[self._command].value
 
     #---------------------------------------------------------------------------
     # Setters
     #---------------------------------------------------------------------------
 
-    def set_command(self,inp):
-        self.Command = inp
+    @command.setter
+    def command(self,inp):
+        self._command = inp
 
-    def set_data(self,inp):
-        self.Data = inp
+    @data.setter
+    def data(self,inp):
+        self._data = inp
 
     #---------------------------------------------------------------------------
     # Serialization
@@ -66,10 +71,10 @@ class Message(object):
     # deserialize message into this object
     def deserialize(self,data):
         # get command type
-        self.Command = Command(int(data[0])).name
+        self._command = Command(int(data[0])).name
 
         # get data
-        self.Data = data[1::]
+        self._data = data[1::]
 
     # serialize communication for communication
     def serialize(self):
@@ -80,4 +85,4 @@ class Message(object):
         #
 
         # hybrid of fixed and dynamic data
-        return str(Command[self.Command].value)+str(self.Data)
+        return str(Command[self._command].value)+str(self._data)

@@ -1,7 +1,29 @@
-
-
+from dataclasses import dataclass, field
+import threading
+from typing_extensions import Self
 from common.message import Command, Message
-from typing import Union
+from typing import Any, Union
+from heapq import heappop, heappush
+
+@dataclass(order=True)
+class _QueueItem:
+    # Declare here to add field attribute
+    msg: Message=field(compare=False)
+
+    def __init__(self, msg: Message):
+        """
+        Initialize queue item
+        """
+
+        self.msg = msg
+
+    @property
+    def priority(self) -> int:
+        """
+        Gets priority for queue
+        """
+
+        return self.msg.priority
 
 
 class Dispatcher(object):
@@ -19,43 +41,77 @@ class Dispatcher(object):
         Initializes member variables
         """
 
-        self.__queue_out = []
-        self.__queue_in = []
+        self._queue_lock = threading.Lock()
+        self._queue_out = []
+        self._queue_in = []
+        
+        self._set_lock = threading.Lock()
+        self._subscribed_delegates = set()
+        self._watched_watchables = set()
 
-    def subscribe(delegate: function, commands: Union[list, Command]):
+        self._run_threads = True
+
+        self._watch_thread_hnd = threading.Thread(target=self._watch_thread)
+        self._sub_thread_hnd = threading.Thread(target=self._sub_thread)
+
+    # Manages the watcher thread
+    def _watch_thread(self):
+        pass
+
+    # Manages the subscriber thread
+    def _sub_thread(self):
+        pass
+
+    def subscribe(self, delegate: function, commands: Union[set, Command]):
         """
         Subscribes a delegate function to receive commands of the type `commands`
         """
 
-        pass
+        # If commands aren't already a set, make them one
+        if not isinstance(commands, set):
+            commands = {commands}
 
-    def unsubscribe(delegate: function, commands: Union[list, Command]):
+        # If delegate is already registered, add commands; otherwise, set as new
+        if delegate in self._subscribed_delegates:
+            self._subscribed_delegates[delegate].update(commands)
+        else:
+            self._subscribed_delegates[delegate] = commands
+
+    def unsubscribe(self, delegate: function, commands: Union[set, Command]):
         """
         Unsubscribes the given delegate function from the commands of the type `commands`
         """
 
-        pass
+        # If commands aren't already a set, make them one
+        if not isinstance(commands, set):
+            commands = {commands}
 
-    def push(message: Message):
+        self._subscribed_delegates[delegate].remove(commands)
+
+        # Remove the delegate from the subscriptions if it's not subscribed to anything
+        if len(self._subscribed_delegates[delegate]) == 0:
+            del self._subscribed_delegates[delegate]
+
+    def push(self, message: Message):
         """
         Pushes a message to all watched watchables
         """
 
-        pass
+        heappush(self._queue_out, _QueueItem(message))
 
-    def watch(pollable):
+    def watch(self, pollable):
         """
         Registers a pollable item to be polled for messages
         """
 
-        pass
+        self._watched_watchables.add(pollable)
 
-    def unwatch(pollable):
+    def unwatch(self, pollable):
         """
         Removes a pollable item from the watch list
         """
 
-        pass
+        self._watched_watchables.remove(pollable)
 
     
 
