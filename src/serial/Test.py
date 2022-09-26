@@ -12,6 +12,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from Modulation import Modulation
 
 #-------------------------------------------------------------------------------
 # Configuration
@@ -20,12 +21,14 @@ import os
 rx_sample_rate = 4e6 # Freqency at which the radio samples waves
 freqency       = 1e6 # Freqency at which the radio will read
 sample_size    = int(4e6) # Number of data points to collect
-num_data       = 40 # Number of data points to be displayed on the graph
+num_data       = 100 # Number of data points to be displayed on the graph
 
 
 #-------------------------------------------------------------------------------
 # Collect data points
 #-------------------------------------------------------------------------------
+
+'''
 
 # Start radio
 d = Device()
@@ -53,6 +56,31 @@ plt.xlim(t_us[0], t_us[-1])
 plt.xlabel('Time (us)')
 plt.ylabel('Normalized Amplitude')
 
+'''
+
+
+#-------------------------------------------------------------------------------
+# Test Mod and demod
+#-------------------------------------------------------------------------------
+mod = Modulation(freqency,rx_sample_rate)
+s = mod.encode("1100")
+print(mod.decode(s))
+
+
+#-------------------------------------------------------------------------------
+# Display data points
+#-------------------------------------------------------------------------------
+
+plt.figure(num=2, figsize=(12.95, 7.8), dpi=150)
+plt.subplot(211)
+t_us = np.arange(len(s))
+plt.plot(t_us, s.real, 'k', label='I')
+plt.xlim(t_us[0], t_us[-1])
+plt.xlabel('Time (us)')
+plt.ylabel('Normalized Amplitude')
+
 plt.show()
 
+
+# End program
 os._exit(1)
