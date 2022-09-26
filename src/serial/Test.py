@@ -63,7 +63,12 @@ plt.ylabel('Normalized Amplitude')
 # Test Mod and demod
 #-------------------------------------------------------------------------------
 mod = Modulation(freqency,rx_sample_rate)
-s = mod.encode("1100")
+s = mod.encode("01001111")
+                #010011001
+                #01001111
+                #01001111
+                #01001111
+                #01001111
 print(mod.decode(s))
 
 
