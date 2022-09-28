@@ -103,7 +103,7 @@ class Dispatcher(object):
 
                 message = heappop(self._queue_in).msg
                 with self._set_lock:
-                    for delegate in self._subscribed_delegates:
+                    for (delegate, _) in filter(lambda kv_pair: message in kv_pair[1], self._subscribed_delegates.items()):
                         delegate(message)
             sleep(THREAD_SLEEP_MS / 1000)
 
