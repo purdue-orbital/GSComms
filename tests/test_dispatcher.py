@@ -1,6 +1,7 @@
+from random import choice
 from time import sleep
-from gscomms.common.dispatcher import Dispatcher
-from gscomms.common.message import Command
+from gscomms.common.dispatcher import AckPing, Dispatcher
+from gscomms.common.message import Command, Message
 
 def test_dispatcher_threads():
     dispatcher = Dispatcher()
@@ -13,7 +14,7 @@ def test_dispatcher_threads():
 class PhonySubscriber:
     received = 0
 
-    def rx(self, msg):
+    def rx(self, _):
         self.received += 1
 
 class PhonyPollableAlways:
@@ -21,7 +22,7 @@ class PhonyPollableAlways:
 
     def rx(self) -> None:
         self.emitted += 1
-        return Command.OTHER
+        return Message(Command.OTHER)
 
 class PhonyPollableNever:
     def rx(self) -> None:
@@ -59,8 +60,50 @@ def test_dispatcher_subscriptions():
     assert len(dispatcher._subscribed_delegates) == 0
     assert len(dispatcher._watched_watchables) == 0
 
-    # May not be exact since threads will have been stopped at unknown time, so use margin of error
-    assert abs(sub.received - always.emitted) <= 2
+    # May not be exact since threads will have been stopped at unknown time, so use simple comparison
+    assert 0 < sub.received <= always.emitted
 
     # Empty subscriber shouldn't have received anything
     assert empty_sub.received == 0
+
+class PhonyPollableAck:
+    normal_emitted = 0
+    ping_emitted = 0
+    acks = 0
+    pongs = 0
+    
+    def rx(self):
+        res = choice([Command.PING, Command.ABORT])
+        if res == Command.PING:
+            self.ping_emitted += 1
+        else:
+            self.normal_emitted += 1
+
+        return Message(res)
+
+    def tx(self, msg: Message):
+        if msg.command == Command.PONG:
+            self.pongs += 1
+        elif msg.command == Command.ACK:
+            self.acks += 1
+
+def test_dispatcher_ack_ping():
+    poll_ack = PhonyPollableAck()
+
+    # The PhonyPollableAck acts as a PING source, so only send PONGs
+    ack = AckPing(send_pings=False)
+
+    dispatcher = Dispatcher()
+    dispatcher.start()
+    dispatcher.subscribe(ack.rx, ack.command_set())
+    dispatcher.watch(poll_ack)
+
+    sleep(0.1)
+
+    ack.stop()
+    dispatcher.unwatch(poll_ack)
+    dispatcher.unsubscribe(ack.rx, ack.command_set())
+    dispatcher.stop()
+
+    assert 0 < poll_ack.pongs <= poll_ack.ping_emitted
+    assert 0 < poll_ack.acks <= poll_ack.normal_emitted

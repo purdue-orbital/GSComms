@@ -3,11 +3,9 @@
 #   data to and from the orbital radio
 #
 
-import serial
 import mp
 from enum import Enum
 import time
-import threading
 import common.message as message
 from logging import Log
 

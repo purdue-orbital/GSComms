@@ -30,6 +30,10 @@ class _QueueItem:
 THREAD_SLEEP_MS = 5
 
 
+class SubscriberThreadPushException(Exception):
+    pass
+
+
 class Dispatcher(object):
     def __new__(cls):
         """
@@ -103,8 +107,12 @@ class Dispatcher(object):
 
                 message = heappop(self._queue_in).msg
                 with self._set_lock:
-                    for (delegate, _) in filter(lambda kv_pair: message in kv_pair[1], self._subscribed_delegates.items()):
-                        delegate(message)
+                    for (delegate, _) in filter(lambda kv_pair: message.command in kv_pair[1], self._subscribed_delegates.items()):
+                        if ret := delegate(message):
+                            if not isinstance(ret, list):
+                                ret = [ret]
+                            for item in ret:
+                                heappush(self._queue_out, _QueueItem(item))
             sleep(THREAD_SLEEP_MS / 1000)
 
     def subscribe(self, delegate: Callable, commands: Union[set, Command]):
@@ -144,6 +152,9 @@ class Dispatcher(object):
         Pushes a message to all watched watchables
         """
 
+        if threading.current_thread() == self._sub_thread_hnd:
+            raise SubscriberThreadPushException()
+
         with self._queue_lock:
             heappush(self._queue_out, _QueueItem(message))
 
@@ -163,6 +174,39 @@ class Dispatcher(object):
         with self._set_lock:
             self._watched_watchables.remove(pollable)
 
-    
 
-    
+PING_TIME_MS = 30_000
+
+
+# Built-in class for controlling ping-pong behavior
+# Pass the entire object in to the subscribe function
+# stop must be called before program ends to stop timer
+class AckPing:
+    def __init__(self, send_pings: bool) -> None:
+        self.timer = threading.Timer(PING_TIME_MS / 1000, lambda: Dispatcher().push(Message(Command.PING))) if send_pings else None
+
+    def rx(self, message: Message):
+        if message.command == Command.PING:
+            return Message(Command.PONG)
+        else:
+            return Message(Command.ACK, {'cmd': message})
+
+    def stop(self):
+        if timer := self.timer:
+            timer.cancel()
+
+    def command_set(self) -> set:
+        """
+        Commands to be passed as the second argument of the subscribe function
+        """
+
+        return {
+            Command.ABORT, 
+            Command.CUT, 
+            Command.LAUNCH, 
+            Command.LOCATION, 
+            Command.OTHER, 
+            Command.PING, 
+            Command.PRESSURE, 
+            Command.TEMPERATURE
+        }
