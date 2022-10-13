@@ -73,12 +73,15 @@ class Message(object):
     #---------------------------------------------------------------------------
 
     # deserialize message into this object
-    def deserialize(self,data):
+    @classmethod
+    def deserialize(cls, data):
         # get command type
-        self._command = Command(int(data[0])).name
+        command = Command(int(data[0]))
 
         # get data
-        self._data = data[1::]
+        data = data[1::]
+
+        return Message(command, data)
 
     # serialize communication for communication
     def serialize(self):
