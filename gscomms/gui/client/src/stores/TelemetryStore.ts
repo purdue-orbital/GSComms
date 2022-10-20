@@ -1,4 +1,5 @@
 import {writable} from 'svelte/store';
+import Vector from '../data/Vector';
 
 class Telemetry {
     public subscribe: Function;
@@ -8,13 +9,9 @@ class Telemetry {
     private time: number = 0;
     private temp: number = 0;
 
-    private gpsX: number = 0;
-    private gpsY: number = 0;
-    private gpsZ: number = 0;
+    private _gps: Vector = new Vector(0, 0, 0);
 
-    private accelX: number = 0;
-    private accelY: number = 0;
-    private accelZ: number = 0;
+    private _accel: Vector = new Vector(0, 0, 0);
 
     private angularVelocity: number = 0;
 
@@ -26,8 +23,17 @@ class Telemetry {
     }
 
     async update() {
-
+        
     }
+
+    public get gps() : Vector {
+        return this._gps;
+    }
+    
+    public get accel() : Vector {
+        return this._accel;
+    }
+    
 }
 
-export const telemetryStore = new Telemetry()
+export const telemetryStore = new Telemetry();
