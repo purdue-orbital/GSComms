@@ -6,14 +6,11 @@ class Telemetry {
     private _set: Function;
     private _update: Function;
 
-    private time: number = 0;
     private temp: number = 0;
 
     private _gps: Vector = new Vector(0, 0, 0);
 
     private _accel: Vector = new Vector(0, 0, 0);
-
-    private angularVelocity: number = 0;
 
     constructor() {
         let { subscribe, set, update } = writable(this);
@@ -23,7 +20,20 @@ class Telemetry {
     }
 
     async update() {
-        
+        await fetch('/update', {'method': 'POST'});
+
+        return new Promise(res => {
+            setTimeout(() => {
+                fetch('/telemetry').then(r => r.json()).then(vals => {
+                    this._update((that: Telemetry) => {
+                        if (vals['pos']) that._gps = new Vector(vals['pos'][0], vals['pos'][1], vals['pos'][2])
+                        if (vals['acc']) that._accel = new Vector(vals['acc'][0], vals['acc'][1], vals['acc'][2])
+                        return that;
+                    })
+                    res(null);
+                });
+            }, 5000)
+        });
     }
 
     public get gps() : Vector {

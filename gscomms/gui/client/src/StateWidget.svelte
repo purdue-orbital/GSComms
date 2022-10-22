@@ -33,7 +33,22 @@
 </script>
 
 <div style="grid-area: {buttonType.gridPosition};">
-    <h5>{buttonType.name}</h5>
+    <span class="material-symbols-outlined">
+        {buttonType.iconName}
+    </span>
+    <h4>{buttonType.name}</h4>
     <button class="button" on:click={showModal} disabled={disabled} style="background-color: {buttonType.backgroundColor};">{buttonType.name.toUpperCase()}</button>
     <div class="states-text"><strong>{buttonType.name} State:</strong><br/>{state}</div>
 </div>
+
+<style>
+    .material-symbols-outlined {
+      font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 100;
+      font-size: xxx-large;
+      user-select: none;
+    }
+</style>

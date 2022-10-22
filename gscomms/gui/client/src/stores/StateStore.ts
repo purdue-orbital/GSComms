@@ -22,20 +22,52 @@ class StateStore {
             that._launchState = State.Processing;
             return that;
         });
+
+        const res = await fetch('/launch', {'method': 'POST'});
+
+        if (res.ok) {
+            this._update((that: StateStore) => {
+                that._launchState = State.Done;
+                return that;
+            });
+        }
     }
 
     async abort() {
+        this._update((that: StateStore) => {
+            that._abortState = State.Processing;
+            return that;
+        });
 
+        const res = await fetch('/launch', {'method': 'POST'});
+
+        if (res.ok) {
+            this._update((that: StateStore) => {
+                that._abortState = State.Done;
+                return that;
+            });
+        }
     }
 
     async cut() {
-        
+        this._update((that: StateStore) => {
+            that._cutState = State.Processing;
+            return that;
+        });
+
+        const res = await fetch('/cut', {'method': 'POST'});
+
+        if (res.ok) {
+            this._update((that: StateStore) => {
+                that._cutState = State.Done;
+                return that;
+            });
+        }
     }
 
     async update() {
         
     }
-
     
     public get launchState() : State {
         return this._launchState;

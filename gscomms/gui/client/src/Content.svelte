@@ -8,20 +8,40 @@
     import {telemetryStore} from './stores/TelemetryStore';
 
     let interval: NodeJS.Timer = setInterval(() => telemetryStore.update(), 30_000);
+    let timeInterval: NodeJS.Timer;
+    let start: any = new Date();
+    let time: any = new Date();
+    
+    $: hours = Math.floor(minutes / 60);
+    $: minutes = Math.floor(seconds / 60);
+    $: seconds = Math.floor(diff / 1000);
+    $: millis = diff % 1000;
+    $: diff = time - start;
 
     let disableLaunch: boolean = false;
     let disableAbort: boolean = true;
     let disableCut: boolean = true;
 
+    const zeroPad = (num, places) => String(num).padStart(places, '0');
+
     const unsub = stateStore.subscribe((newState: StateStore) => {
         disableLaunch = newState.launchState !== State.NotStarted;
         disableAbort = newState.abortState !== State.NotStarted || newState.launchState !== State.Done;
         disableCut = newState.cutState !== State.NotStarted || disableAbort;
+
+        if (newState.launchState === State.Processing) {
+            start = new Date();
+            timeInterval = setInterval(() => time = new Date(), 1);
+        } else if (newState.abortState === State.Done) {
+            clearInterval(timeInterval);
+            timeInterval = null;
+        }
     });
 
     onMount(() => stateStore.update());
 
     onDestroy(() => {
+        if (timeInterval) clearInterval(timeInterval);
         clearInterval(interval);
         unsub();
     });
@@ -36,32 +56,12 @@
     <div class="main-page-container">
 
         <div class="map">
-            Map
-            <hr>
             <Map/>
-            <div class="map-bottom">
-                <table class="map-table" style="width: 100%;">
-                    <tr>
-                        <th>Time (s)</th>
-                        <th>GPS (x)</th>
-                        <th>GPS (y)</th>
-                        <th>GPS (z)</th>
-                    </tr>
-                    <tr>
-                        <td>seconds</td>
-                        <td>x</td>
-                        <td>y</td>
-                        <td>z</td>
-                    </tr>
-                </table>
-            </div>
-
         </div>
         <div class="statistics">
             Telemetry Data
             <hr>
             <div class="stats-numbers">
-                <div>Time (s): </div>
                 <div>Temp (C):</div>
                 <div>GPS (x): </div>
                 <div>GPS (y): </div>
@@ -77,24 +77,11 @@
         <StateWidget buttonType={StateWidgetType.ABORT} onClick={() => stateStore.abort()} disabled={disableAbort}/>
         <StateWidget buttonType={StateWidgetType.CUT} onClick={() => stateStore.cut()} disabled={disableCut}/>
 
-        <!-- <div class="launch">
-            <h5>Launch</h5>
-            <button class="button" style="background-color: green;">LAUNCH</button>
-            <div class="states-text">Launch State: N/A</div>
-        </div>
-        <div class="abort">
-            <h5>Abort</h5>
-            <button class="button" style="background-color: red;">ABORT</button>
-            <div class="states-text">Abort State: N/A</div>
-        </div>
-        <div class="deflate">
-            <h5>Deflate/Cut</h5>
-            <button class="button" style="background-color: blue;">DEFLATE/CUT</button>
-            <div class="states-text">Deflate State: N/A</div>
-        </div> -->
-        <div class="stabilize">
-            <h5>Stabilize</h5>
-            <button class="button" style="background-color: blue;">STABILIZE</button>
+        <div class="time">
+            <h4>Mission Time</h4>
+            <h1 class="time-font">
+                {hours}:{zeroPad((minutes % 60).toString(), 2)}:{zeroPad((seconds % 60).toString(), 2)}.{zeroPad(millis.toString(), 3)}
+            </h1>
         </div>
 
 
@@ -102,19 +89,23 @@
 </main>
 
 <style>
+    .time-font {
+        font-family: monospace;
+    }
+
     .map {
         grid-area: map-grid;
     }
     .statistics {grid-area: statistics-grid;}
-    .stabilize {grid-area: stabilize-grid;}
+    .time {grid-area: time-grid;}
 
     .main-page-container {
     display: grid;
     grid-template-areas:
-        'map-grid map-grid launch-grid abort-grid statistics-grid'
-        'map-grid map-grid launch-grid abort-grid statistics-grid'
-        'map-grid map-grid cut-grid stabilize-grid statistics-grid'
-        'map-grid map-grid cut-grid stabilize-grid statistics-grid';
+        'map-grid map-grid time-grid time-grid time-grid statistics-grid'
+        'map-grid map-grid time-grid time-grid time-grid statistics-grid'
+        'map-grid map-grid launch-grid abort-grid cut-grid statistics-grid'
+        'map-grid map-grid launch-grid abort-grid cut-grid statistics-grid';
     gap: 25px;
     background-color: white;
     padding: 10px;
@@ -126,6 +117,10 @@
         padding: 20px;
         font-size: 30px;
         border-radius: 10px;
+    }
+
+    :global(.main-page-container > div > h4) {
+        margin: 10px 0;
     }
 
     :global(.button) {
@@ -149,16 +144,6 @@
         cursor: not-allowed;
     }
 
-    .map-bottom {
-        text-align: bottom;
-        font-size: 15px;
-        padding-top: 250px;
-    }
-
-    table, th, td {
-        border: 1px solid black;
-    }
-
     /* Statistics Area */
     .stats-numbers > div {
         padding: 1.5%;
@@ -173,6 +158,9 @@
 
     .logo {
         width: 40%;
+        background-color: black;
+        padding: 5px;
+        border-radius: 3px;
     }
 
     .header {

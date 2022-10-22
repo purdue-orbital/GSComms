@@ -20,7 +20,7 @@ class PhonySubscriber:
 class PhonyPollableAlways:
     emitted = 0
 
-    def rx(self) -> None:
+    def rx(self):
         self.emitted += 1
         return Message(Command.OTHER)
 

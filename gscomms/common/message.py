@@ -1,6 +1,6 @@
 # import Enum for enumerating commands
 from enum import Enum
-from typing import Any
+from typing import Any, Optional, Union
 
 # ------------------------------------------------------------------------------
 # Command Enums and Quick Conversions
@@ -15,10 +15,11 @@ class Command(Enum):
     LOCATION    = 3
     PRESSURE    = 4
     TEMPERATURE = 5
-    ACK         = 6
-    PING        = 7
-    PONG        = 8
-    OTHER       = 9
+    REQUEST     = 6
+    ACK         = 7
+    PING        = 8
+    PONG        = 9
+    OTHER       = 10
 
 # ------------------------------------------------------------------------------
 # Message Class
@@ -29,7 +30,7 @@ class Message(object):
     """Basic message object class for holding message data to be transmitted"""
 
     # construct message to be transmitted
-    def __init__(self,command: Command = Command.OTHER, data: dict = None):
+    def __init__(self,command: Command = Command.OTHER, data: Optional[dict] = None):
         super(Message, self).__init__()
         # set the command
         self._command = command
@@ -48,7 +49,7 @@ class Message(object):
 
     # return the data in the body of this message
     @property
-    def data(self):
+    def data(self) -> Optional[dict]:
         return self._data
 
     # return the priority of this message

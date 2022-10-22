@@ -31,10 +31,10 @@
 
 
 
-import gs
+import gscomms.gs.gs_old as gs_old
 import threading
 
-g = gs.gs(True)
+g = gs_old.gs(True)
 
 def abort():
     print("Uh Oh...")
@@ -64,7 +64,7 @@ print(g.get_pressure())
 #-------------------------------------------------------------------------------
 
 # subscribe events to functions
-g.subscribe(gs.Event.LOCATION,abort)
+g.subscribe(gs_old.Event.LOCATION,abort)
 
 
 threading.Thread(target=g.start).start()
