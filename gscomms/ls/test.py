@@ -35,11 +35,11 @@ def blank():
     return
 
 
-import ls
+import gscomms.ls.ls_old as ls_old
 import threading
 from logging import Log
 
-l = ls.ls(True)
+l = ls_old.ls(True)
 
 #-------------------------------------------------------------------------------
 # test ls

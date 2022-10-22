@@ -1,11 +1,13 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
+    import { scale } from 'svelte/transition';
     import State from './data/State';
     import StateWidgetType from './data/StateWidgetType';
+    import Vector from './data/Vector';
     import Map from './Map.svelte';
     import StateWidget from './StateWidget.svelte';
     import { StateStore, stateStore } from './stores/StateStore';
-    import {telemetryStore} from './stores/TelemetryStore';
+    import {Telemetry, telemetryStore} from './stores/TelemetryStore';
 
     let interval: NodeJS.Timer = setInterval(() => telemetryStore.update(), 30_000);
     let timeInterval: NodeJS.Timer;
@@ -22,28 +24,43 @@
     let disableAbort: boolean = true;
     let disableCut: boolean = true;
 
-    const zeroPad = (num, places) => String(num).padStart(places, '0');
+    const zeroPad = (num: number, places: number) => String(num).padStart(places, '0');
 
-    const unsub = stateStore.subscribe((newState: StateStore) => {
-        disableLaunch = newState.launchState !== State.NotStarted;
-        disableAbort = newState.abortState !== State.NotStarted || newState.launchState !== State.Done;
+    const stateUnsub = stateStore.subscribe((newState: StateStore) => {
+        disableAbort = newState.abortState !== State.NotStarted;
+        disableLaunch = newState.launchState !== State.NotStarted || disableAbort;
         disableCut = newState.cutState !== State.NotStarted || disableAbort;
 
-        if (newState.launchState === State.Processing) {
-            start = new Date();
-            timeInterval = setInterval(() => time = new Date(), 1);
-        } else if (newState.abortState === State.Done) {
+        if (newState.abortState === State.Done) {
             clearInterval(timeInterval);
             timeInterval = null;
         }
     });
+
+    let lastTelemUpdate: Date = null;
+    let temperature: number = 0;
+    let position: Vector = new Vector(0, 0, 0);
+    let acceleration: Vector = new Vector(0, 0, 0);
+
+    const telemetryUnsub = telemetryStore.subscribe((newState: Telemetry) => {
+        lastTelemUpdate = new Date();
+        temperature = newState.temperature;
+        position = newState.gps;
+        acceleration = newState.accel;
+    });
+
+    function clockStart() {
+        start = new Date();
+        timeInterval = setInterval(() => time = new Date(), 1);
+    }
 
     onMount(() => stateStore.update());
 
     onDestroy(() => {
         if (timeInterval) clearInterval(timeInterval);
         clearInterval(interval);
-        unsub();
+        stateUnsub();
+        telemetryUnsub();
     });
 </script>
 
@@ -60,28 +77,33 @@
         </div>
         <div class="statistics">
             Telemetry Data
+            {#if lastTelemUpdate}
+                <p class="last-updated">Last Updated: {lastTelemUpdate.toLocaleTimeString()}</p>
+            {/if}
             <hr>
             <div class="stats-numbers">
-                <div>Temp (C):</div>
-                <div>GPS (x): </div>
-                <div>GPS (y): </div>
-                <div>GPS (z): </div>
-                <div>Acceleration (x): </div>
-                <div>Acceleration (y): </div>
-                <div>Acceleration (z): </div>
-                <div>Angular Velocity: </div>
+                <div>Temp (C): {temperature}</div>
+                <div>GPS (x): {position.x}</div>
+                <div>GPS (y): {position.y}</div>
+                <div>GPS (z): {position.z}</div>
+                <div>Acceleration (x): {acceleration.x}</div>
+                <div>Acceleration (y): {acceleration.y}</div>
+                <div>Acceleration (z): {acceleration.z}</div>
             </div>
         </div>
         
-        <StateWidget buttonType={StateWidgetType.LAUNCH} onClick={() => stateStore.launch()} disabled={disableLaunch}/>
-        <StateWidget buttonType={StateWidgetType.ABORT} onClick={() => stateStore.abort()} disabled={disableAbort}/>
-        <StateWidget buttonType={StateWidgetType.CUT} onClick={() => stateStore.cut()} disabled={disableCut}/>
+        <StateWidget buttonType={StateWidgetType.LAUNCH} onClick={() => stateStore.launch()} disabled={disableLaunch || !timeInterval}/>
+        <StateWidget buttonType={StateWidgetType.ABORT} onClick={() => stateStore.abort()} disabled={disableAbort || !timeInterval}/>
+        <StateWidget buttonType={StateWidgetType.CUT} onClick={() => stateStore.cut()} disabled={disableCut || !timeInterval}/>
 
         <div class="time">
             <h4>Mission Time</h4>
             <h1 class="time-font">
-                {hours}:{zeroPad((minutes % 60).toString(), 2)}:{zeroPad((seconds % 60).toString(), 2)}.{zeroPad(millis.toString(), 3)}
+                {hours}:{zeroPad(minutes % 60, 2)}:{zeroPad(seconds % 60, 2)}.{zeroPad(millis, 3)}
             </h1>
+            {#if diff === 0}
+                <button class="button" on:click={clockStart} style="background-color: green;" transition:scale>Start Clock</button>
+            {/if}
         </div>
 
 
@@ -166,5 +188,9 @@
     .header {
         align-content: center;
         text-align: center;
+    }
+
+    .last-updated {
+        font-size: small;
     }
 </style>

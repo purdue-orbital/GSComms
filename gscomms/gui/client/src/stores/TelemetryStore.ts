@@ -6,7 +6,7 @@ class Telemetry {
     private _set: Function;
     private _update: Function;
 
-    private temp: number = 0;
+    private _temperature: number = 0;
 
     private _gps: Vector = new Vector(0, 0, 0);
 
@@ -26,8 +26,9 @@ class Telemetry {
             setTimeout(() => {
                 fetch('/telemetry').then(r => r.json()).then(vals => {
                     this._update((that: Telemetry) => {
-                        if (vals['pos']) that._gps = new Vector(vals['pos'][0], vals['pos'][1], vals['pos'][2])
-                        if (vals['acc']) that._accel = new Vector(vals['acc'][0], vals['acc'][1], vals['acc'][2])
+                        if (vals['pos']) that._gps = new Vector(vals['pos'][0], vals['pos'][1], vals['pos'][2]);
+                        if (vals['acc']) that._accel = new Vector(vals['acc'][0], vals['acc'][1], vals['acc'][2]);
+                        that._temperature = vals['temp'] || 0;
                         return that;
                     })
                     res(null);
@@ -44,6 +45,11 @@ class Telemetry {
         return this._accel;
     }
     
+    public get temperature() : number {
+        return this._temperature;
+    }
+    
 }
 
-export const telemetryStore = new Telemetry();
+const telemetryStore = new Telemetry();
+export { telemetryStore, type Telemetry };

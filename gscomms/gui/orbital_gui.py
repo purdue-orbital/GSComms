@@ -46,7 +46,8 @@ def telemetry():
     if gs := gs:
         return {
             'pos': gs.location[0] if gs.location is not None else None,
-            'acc': gs.location[1] if gs.location is not None else None
+            'acc': gs.location[1] if gs.location is not None else None,
+            'temp': gs.temperature
         }
 
     response_abort(500)
