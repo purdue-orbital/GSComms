@@ -1,8 +1,8 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 import threading
-from time import sleep
 from .message import Message, Command
-from typing import Any, Optional, Set, Union, Callable
+from typing import Optional, Set, Union, Callable
 from heapq import heappop, heappush
 
 @dataclass(order=True)
@@ -26,82 +26,65 @@ class _QueueItem:
         return self.msg.priority
 
 
-# Time for dispatcher threads to sleep (ms)
-THREAD_SLEEP_MS = 5
 
+_subscribed_stations: dict[Callable, Set[Command]] = {}
+_subscribed_radios: dict[object, list[_QueueItem]] = {}
 
-class Dispatcher(object):
-    def __new__(cls):
-        """
-        Creates and manages a single instance of the Dispatcher class
-        """
-        
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(Dispatcher, cls).__new__(cls)
+def subscribe_station(delegate: Callable, commands: Union[set, Command]):
+    """
+    Subscribes a delegate function to receive commands of the type `commands`
+    """
 
-        return cls.instance
+    # If commands aren't already a set, make them one
+    if not isinstance(commands, set):
+        commands = {commands}
 
-    def __init__(self):
-        """
-        Initializes member variables
-        """
-        self._subscribed_stations: dict[Callable, Set[Command]] = {}
-        self._subscribed_radios: dict[object, list[_QueueItem]] = {}
+    # If delegate is already registered, add commands; otherwise, set as new
+    if delegate in _subscribed_stations:
+            _subscribed_stations[delegate].update(commands)
+    else:
+        _subscribed_stations[delegate] = commands
 
-    def subscribe_station(self, delegate: Callable, commands: Union[set, Command]):
-        """
-        Subscribes a delegate function to receive commands of the type `commands`
-        """
+def unsubscribe_station(delegate: Callable, commands: Union[set, Command]):
+    """
+    Unsubscribes the given delegate function from the commands of the type `commands`
+    """
 
-        # If commands aren't already a set, make them one
-        if not isinstance(commands, set):
-            commands = {commands}
+    # If commands aren't already a set, make them one
+    if not isinstance(commands, set):
+        commands = {commands}
 
-        # If delegate is already registered, add commands; otherwise, set as new
-        if delegate in self._subscribed_stations:
-                self._subscribed_stations[delegate].update(commands)
-        else:
-            self._subscribed_stations[delegate] = commands
+    _subscribed_stations[delegate].difference_update(commands)
 
-    def unsubscribe_station(self, delegate: Callable, commands: Union[set, Command]):
-        """
-        Unsubscribes the given delegate function from the commands of the type `commands`
-        """
+    # Remove the delegate from the subscriptions if it's not subscribed to anything
+    if len(_subscribed_stations[delegate]) == 0:
+        _subscribed_stations.pop(delegate)
 
-        # If commands aren't already a set, make them one
-        if not isinstance(commands, set):
-            commands = {commands}
+# Subscribes a radio which calls a function to give the radio a way to pop its queue
+def subscribe_radio(delegate):
+    _subscribed_radios[delegate] = []
 
-        self._subscribed_stations[delegate].difference_update(commands)
+    def pop() -> Optional[Message]:
+        if len(_subscribed_radios[delegate]) == 0:
+            return None
+        val = heappop(_subscribed_radios[delegate]).msg
+        return val
 
-        # Remove the delegate from the subscriptions if it's not subscribed to anything
-        if len(self._subscribed_stations[delegate]) == 0:
-            self._subscribed_stations.pop(delegate)
+    delegate.on_subscribed(pop)
 
-    # Subscribes a radio which calls a function to give the radio a way to pop its queue
-    def subscribe_radio(self, delegate):
-        self._subscribed_radios[delegate] = []
+def unsubscribe_radio(delegate):
+    _subscribed_radios.pop(delegate)
 
-        def pop() -> Optional[Message]:
-            if len(self._subscribed_radios[delegate]) == 0:
-                return None
-            return heappop(self._subscribed_radios[delegate]).msg
+def push_radios(message: Message):
+    """
+    Pushes a message to all radios
+    """
+    for (_, queue) in _subscribed_radios.items():
+        heappush(queue, _QueueItem(message))
 
-        delegate.on_subscribed(pop)
-
-    def unsubscribe_radio(self, delegate):
-        self._subscribed_radios.pop(delegate)
-
-    def push_radios(self, message: Message):
-        """
-        Pushes a message to all radios
-        """
-        for (_, queue) in self._subscribed_radios.items():
-            heappush(queue, _QueueItem(message))
-
-    def push_stations(self, message: Message):
-        for (delegate, _) in filter(lambda kv_pair: message.command in kv_pair[1], self._subscribed_stations.items()):
-            delegate(message)
+def push_stations(message: Message):
+    for (delegate, _) in filter(lambda kv_pair: message.command in kv_pair[1], _subscribed_stations.items()):
+        delegate(message)
 
 
 PING_TIME_MS = 30_000
@@ -112,7 +95,9 @@ PING_TIME_MS = 30_000
 # stop must be called before program ends to stop timer
 class AckPing:
     def __init__(self, send_pings: bool) -> None:
-        self.timer = threading.Timer(PING_TIME_MS / 1000, lambda: Dispatcher().push_radios(Message(Command.PING))) if send_pings else None
+        self.timer = threading.Timer(PING_TIME_MS / 1000, lambda: push_radios(Message(Command.PING))) if send_pings else None
+        if timer := self.timer:
+            timer.start()
 
     def rx(self, message: Message):
         if message.command == Command.PING:
