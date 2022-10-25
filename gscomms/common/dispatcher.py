@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import threading
 from time import sleep
 from .message import Message, Command
-from typing import Any, Union, Callable
+from typing import Any, Optional, Set, Union, Callable
 from heapq import heappop, heappush
 
 @dataclass(order=True)
@@ -30,10 +30,6 @@ class _QueueItem:
 THREAD_SLEEP_MS = 5
 
 
-class SubscriberThreadPushException(Exception):
-    pass
-
-
 class Dispatcher(object):
     def __new__(cls):
         """
@@ -49,73 +45,10 @@ class Dispatcher(object):
         """
         Initializes member variables
         """
+        self._subscribed_stations: dict[Callable, Set[Command]] = {}
+        self._subscribed_radios: dict[object, list[_QueueItem]] = {}
 
-        self._queue_lock = threading.Lock()
-        self._queue_out = []
-        self._queue_in = []
-        
-        self._set_lock = threading.Lock()
-        self._subscribed_delegates = {}
-        self._watched_watchables = set()
-
-        self._run_threads = True
-        self.start()
-
-    def start(self):
-        if self.is_running():
-            return
-
-        self._watch_thread_hnd = threading.Thread(target=self._watch_thread)
-        self._watch_thread_hnd.start()
-        self._sub_thread_hnd = threading.Thread(target=self._sub_thread)
-        self._sub_thread_hnd.start()
-
-    def is_running(self) -> bool:
-        if not (hasattr(self, '_watch_thread_hnd') and hasattr(self, '_sub_thread_hnd')):
-            return False
-
-        return self._watch_thread_hnd.is_alive() or self._sub_thread_hnd.is_alive()
-
-    def stop(self):
-        self._run_threads = False
-        self._watch_thread_hnd.join()
-        self._sub_thread_hnd.join()
-
-    # Manages the watcher thread
-    def _watch_thread(self):
-        while self._run_threads:
-            with self._queue_lock:
-                # Check output queue and write if necessary
-                message = heappop(self._queue_out).msg if len(self._queue_out) > 0 else None
-
-                with self._set_lock:
-                    for watchable in self._watched_watchables:
-                        if message is not None:
-                            watchable.tx(message)
-                        # Check pollables and write to input if necessary
-                        if msg := watchable.rx():
-                            heappush(self._queue_in, _QueueItem(msg))
-
-            sleep(THREAD_SLEEP_MS / 1000)
-
-    # Manages the subscriber thread
-    def _sub_thread(self):
-        while self._run_threads:
-            with self._queue_lock:
-                if len(self._queue_in) == 0:
-                    continue
-
-                message = heappop(self._queue_in).msg
-                with self._set_lock:
-                    for (delegate, _) in filter(lambda kv_pair: message.command in kv_pair[1], self._subscribed_delegates.items()):
-                        if ret := delegate(message):
-                            if not isinstance(ret, list):
-                                ret = [ret]
-                            for item in ret:
-                                heappush(self._queue_out, _QueueItem(item))
-            sleep(THREAD_SLEEP_MS / 1000)
-
-    def subscribe(self, delegate: Callable, commands: Union[set, Command]):
+    def subscribe_station(self, delegate: Callable, commands: Union[set, Command]):
         """
         Subscribes a delegate function to receive commands of the type `commands`
         """
@@ -125,13 +58,12 @@ class Dispatcher(object):
             commands = {commands}
 
         # If delegate is already registered, add commands; otherwise, set as new
-        with self._set_lock:
-            if delegate in self._subscribed_delegates:
-                self._subscribed_delegates[delegate].update(commands)
-            else:
-                self._subscribed_delegates[delegate] = commands
+        if delegate in self._subscribed_stations:
+                self._subscribed_stations[delegate].update(commands)
+        else:
+            self._subscribed_stations[delegate] = commands
 
-    def unsubscribe(self, delegate: Callable, commands: Union[set, Command]):
+    def unsubscribe_station(self, delegate: Callable, commands: Union[set, Command]):
         """
         Unsubscribes the given delegate function from the commands of the type `commands`
         """
@@ -140,39 +72,36 @@ class Dispatcher(object):
         if not isinstance(commands, set):
             commands = {commands}
 
-        with self._set_lock:
-            self._subscribed_delegates[delegate].difference_update(commands)
+        self._subscribed_stations[delegate].difference_update(commands)
 
-            # Remove the delegate from the subscriptions if it's not subscribed to anything
-            if len(self._subscribed_delegates[delegate]) == 0:
-                del self._subscribed_delegates[delegate]
+        # Remove the delegate from the subscriptions if it's not subscribed to anything
+        if len(self._subscribed_stations[delegate]) == 0:
+            self._subscribed_stations.pop(delegate)
 
-    def push(self, message: Message):
+    # Subscribes a radio which calls a function to give the radio a way to pop its queue
+    def subscribe_radio(self, delegate):
+        self._subscribed_radios[delegate] = []
+
+        def pop() -> Optional[Message]:
+            if len(self._subscribed_radios[delegate]) == 0:
+                return None
+            return heappop(self._subscribed_radios[delegate]).msg
+
+        delegate.on_subscribed(pop)
+
+    def unsubscribe_radio(self, delegate):
+        self._subscribed_radios.pop(delegate)
+
+    def push_radios(self, message: Message):
         """
-        Pushes a message to all watched watchables
+        Pushes a message to all radios
         """
+        for (_, queue) in self._subscribed_radios.items():
+            heappush(queue, _QueueItem(message))
 
-        if threading.current_thread() == self._sub_thread_hnd:
-            raise SubscriberThreadPushException()
-
-        with self._queue_lock:
-            heappush(self._queue_out, _QueueItem(message))
-
-    def watch(self, pollable):
-        """
-        Registers a pollable item to be polled for messages
-        """
-
-        with self._set_lock:
-            self._watched_watchables.add(pollable)
-
-    def unwatch(self, pollable):
-        """
-        Removes a pollable item from the watch list
-        """
-
-        with self._set_lock:
-            self._watched_watchables.remove(pollable)
+    def push_stations(self, message: Message):
+        for (delegate, _) in filter(lambda kv_pair: message.command in kv_pair[1], self._subscribed_stations.items()):
+            delegate(message)
 
 
 PING_TIME_MS = 30_000
@@ -183,7 +112,7 @@ PING_TIME_MS = 30_000
 # stop must be called before program ends to stop timer
 class AckPing:
     def __init__(self, send_pings: bool) -> None:
-        self.timer = threading.Timer(PING_TIME_MS / 1000, lambda: Dispatcher().push(Message(Command.PING))) if send_pings else None
+        self.timer = threading.Timer(PING_TIME_MS / 1000, lambda: Dispatcher().push_radios(Message(Command.PING))) if send_pings else None
 
     def rx(self, message: Message):
         if message.command == Command.PING:
@@ -195,6 +124,7 @@ class AckPing:
         if timer := self.timer:
             timer.cancel()
 
+    @property
     def command_set(self) -> set:
         """
         Commands to be passed as the second argument of the subscribe function

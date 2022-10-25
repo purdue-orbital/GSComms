@@ -43,21 +43,21 @@ def test_dispatcher_subscriptions():
 
     dispatcher = Dispatcher()
     dispatcher.start()
-    dispatcher.subscribe(sub.rx, Command.OTHER)
-    dispatcher.subscribe(empty_sub.rx, Command.ABORT)
+    dispatcher.subscribe_station(sub.rx, Command.OTHER)
+    dispatcher.subscribe_station(empty_sub.rx, Command.ABORT)
     dispatcher.watch(always)
     dispatcher.watch(never)
 
     sleep(0.5)
 
-    dispatcher.unsubscribe(sub.rx, Command.OTHER)
-    dispatcher.unsubscribe(empty_sub.rx, Command.ABORT)
+    dispatcher.unsubscribe_station(sub.rx, Command.OTHER)
+    dispatcher.unsubscribe_station(empty_sub.rx, Command.ABORT)
     dispatcher.unwatch(always)
     dispatcher.unwatch(never)
     dispatcher.stop()
 
     # Make sure everything is empty
-    assert len(dispatcher._subscribed_delegates) == 0
+    assert len(dispatcher._subscribed_stations) == 0
     assert len(dispatcher._watched_watchables) == 0
 
     # May not be exact since threads will have been stopped at unknown time, so use simple comparison
@@ -95,14 +95,14 @@ def test_dispatcher_ack_ping():
 
     dispatcher = Dispatcher()
     dispatcher.start()
-    dispatcher.subscribe(ack.rx, ack.command_set())
+    dispatcher.subscribe_station(ack.rx, ack.command_set)
     dispatcher.watch(poll_ack)
 
     sleep(0.1)
 
     ack.stop()
     dispatcher.unwatch(poll_ack)
-    dispatcher.unsubscribe(ack.rx, ack.command_set())
+    dispatcher.unsubscribe_station(ack.rx, ack.command_set)
     dispatcher.stop()
 
     assert 0 < poll_ack.pongs <= poll_ack.ping_emitted

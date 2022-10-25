@@ -9,10 +9,10 @@ class GroundStation:
         self._location = None
         self._pressure = None
 
-        Dispatcher().subscribe(self._on_message, {Command.TEMPERATURE, Command.LOCATION, Command.PRESSURE, Command.OTHER})
+        Dispatcher().subscribe_station(self._on_message, {Command.TEMPERATURE, Command.LOCATION, Command.PRESSURE, Command.OTHER})
 
     def die(self):
-        Dispatcher().unsubscribe(self._on_message, {Command.TEMPERATURE, Command.LOCATION, Command.PRESSURE, Command.OTHER})
+        Dispatcher().unsubscribe_station(self._on_message, {Command.TEMPERATURE, Command.LOCATION, Command.PRESSURE, Command.OTHER})
 
     def _on_message(self, msg: Message):
         if msg.command == Command.TEMPERATURE:
@@ -28,13 +28,13 @@ class GroundStation:
             print(f'Received OTHER command with data: {msg.data}')
 
     def request_temperature(self):
-        Dispatcher().push(Message(Command.REQUEST, {'cmd': Command.TEMPERATURE}))
+        Dispatcher().push_radios(Message(Command.REQUEST, {'cmd': Command.TEMPERATURE}))
 
     def request_location(self):
-        Dispatcher().push(Message(Command.REQUEST, {'cmd': Command.LOCATION}))
+        Dispatcher().push_radios(Message(Command.REQUEST, {'cmd': Command.LOCATION}))
 
     def request_pressure(self):
-        Dispatcher().push(Message(Command.REQUEST, {'cmd': Command.PRESSURE}))
+        Dispatcher().push_radios(Message(Command.REQUEST, {'cmd': Command.PRESSURE}))
 
     @property
     def temperature(self) -> Optional[int]:
@@ -52,10 +52,10 @@ class GroundStation:
         return self._pressure
 
     def launch(self):
-        Dispatcher().push(Message(Command.LAUNCH))
+        Dispatcher().push_radios(Message(Command.LAUNCH))
 
     def cut(self):
-        Dispatcher().push(Message(Command.CUT))
+        Dispatcher().push_radios(Message(Command.CUT))
 
     def abort(self):
-        Dispatcher().push(Message(Command.ABORT))
+        Dispatcher().push_radios(Message(Command.ABORT))
