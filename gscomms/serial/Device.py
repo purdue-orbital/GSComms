@@ -3,106 +3,131 @@
 #
 # Author: Nicholas Ball
 #
-# This file will handle radio devices connected to this device and selecting them
+# This file will handle communication to and from the radio
 #
-
 import SoapySDR
 from SoapySDR import *
+import threading
 import numpy as np
-import numpy
-import sys
+import time
 
-# These are used for passing to the radio what kind of stream is happening
-RX = 0
-TX = 1
+# this is for stopping and starting read proccessign
+mux = False
 
-# Remove annoying soapysdr stuff
-def log_handler(log_level, message):
-    pass
-SoapySDR.registerLogHandler(log_handler)
-
-
-# class for device information
 class Device(object):
-    """Device object holds device information and capabilities"""
+    """Handle communication to and from radio"""
 
-    def __new__(self):
-        # Make device a signle ton
-        if not hasattr(self, 'instance'):
-            # Set instance
-            self.instance = super(Device, self).__new__(self)
+    def __init__(self, rx_freqency,tx_freqency,rx_gain,tx_gain,rx_channel,tx_channel,sample_rate,sample_size):
+        super(Device, self).__init__()
 
-            # Set radio object
-            self.Radio = None
+        # Get radio
+        self.Radio = SoapySDR.Device(dict(driver="hackrf"))
 
-            # Set freqency range
-            self.Range = []
+        #-----------------------------------------------------------------------
+        # Set freqencies
+        #-----------------------------------------------------------------------
+        self.RX_Freqency = rx_freqency
+        self.TX_Freqency = tx_freqency
 
-            # Set Radio transmissions
-            self.Streams = {0:None,1:None}
+        self.Radio.setFrequency(SOAPY_SDR_RX, rx_channel, rx_freqency)
+        self.Radio.setFrequency(SOAPY_SDR_TX, tx_channel, tx_freqency)
 
-            # Buffer of data\
-            self.Buff = numpy.array([0]*100, numpy.complex64)
-        return self.instance
+        #-----------------------------------------------------------------------
+        # Set gain
+        #-----------------------------------------------------------------------
+        self.RX_Gain = rx_gain
+        self.TX_Gain = tx_gain
 
-    # This will start a stream
-    def start(self,flag,sample_rate,freqency,channel,sample_size):
-        # call global vars
-        global RX,TX
+        self.Radio.setGain(SOAPY_SDR_RX, rx_channel, rx_gain)
+        self.Radio.setGain(SOAPY_SDR_TX, tx_channel, tx_gain)
 
-        # create object used for setting up the stream
-        f = None
+        #-----------------------------------------------------------------------
+        # Set freqencies
+        #-----------------------------------------------------------------------
+        self.RX_Channel = rx_channel
+        self.TX_Channel = tx_channel
 
-        # set the flag
-        if flag == RX:
-            f = SOAPY_SDR_RX
-        else:
-            f = SOAPY_SDR_TX
+        #-----------------------------------------------------------------------
+        # Data Streams
+        #-----------------------------------------------------------------------
+        self.RX = None
+        self.TX = None
 
-        # Set sample rate
-        self.Radio.setSampleRate(f,0,sample_rate)
+        self.RX_Array = np.array([0]*0, np.complex64)
 
-        # Set freqency
-        self.Radio.setFrequency(f,0,freqency)
+        #-----------------------------------------------------------------------
+        # Miscellaneous
+        #-----------------------------------------------------------------------
+        self.Sample_Rate = sample_rate
+        self.Sample_Size = sample_size
 
-        self.Radio.setGainMode(f,0,False)
+        self.Radio.setSampleRate(SOAPY_SDR_RX, rx_channel, sample_rate)
+        self.Radio.setSampleRate(SOAPY_SDR_TX, tx_channel, sample_rate)
 
-        # setup stream
-        self.Streams[flag] = self.Radio.setupStream(f,SOAPY_SDR_CF32,[channel])
+        # Set bandwidth of 5 khz
+        self.Radio.setBandwidth(SOAPY_SDR_RX, rx_channel, 30e6)
+        self.Radio.setBandwidth(SOAPY_SDR_TX, tx_channel, 30e6)
 
-        # Initialize sample buffer
-        self.Buff = numpy.array([0]*sample_size, numpy.complex64)
+    # Get RX array
+    def fetch(self):
+        # hold data
+        hold = self.RX_Array
 
-        # start stream
-        self.Radio.activateStream(self.Streams[flag])
+        # reset array
+        self.RX_Array = np.array([0]*0, np.complex64)
 
-    # Stop a stream that is currently going
-    def stop(self,flag):
-        # stop the stream
-        self.Radio.deactivateStream(self.Streams[flag])
-        self.Radio.closeStream(self.Streams[flag])
+        # return data held on to
+        return hold
 
-    def get_arr(self):
-        return self.Buff
-
-    # Collect data from the read stream that started
-    def read(self):
-        return self.Radio.readStream(self.Streams[RX], [self.Buff], len(self.Buff),timeoutUs=int(5e5))
-
-    # Collect data from the read stream that started
+    # send data to radio for it to transmit
     def write(self,data):
-        # write data to stream to be transmited
-        self.Radio.readStream(self.Streams[TX], [data], len(data)).ret
+        global mux
+        # Hold read procces
+        mux = True;
+
+        # write
+        status = self.Radio.writeStream(self.TX, [data], len(data), SOAPY_SDR_HAS_TIME | SOAPY_SDR_END_BURST,int(self.Radio.getHardwareTime() + 0.1e9),timeoutUs=int(5e5))
+
+        # Resume read method
+        mux = False
+
+    # This function will read from the radio and add what it gets to the array
+    def __read_loop(self):
+        global mux
+        while True:
+            # if mux is true, wait here
+            while mux:
+                pass
+            # Make buffer
+            buff = np.array([0]*self.Sample_Size, np.complex64)
+
+            # Read from radio
+            status = self.Radio.readStream(self.RX, [buff], len(buff),timeoutUs=int(5e5))
+
+            # Ensure there is data and then concatenate buffers
+            if status.ret > 0:
+                self.RX_Array = np.concatenate((self.RX_Array, buff[:status.ret]))
+
+    # Stop ongoing streams
+    def stop(self):
+        self.Radio.deactivateStream(self.TX)
+        self.Radio.deactivateStream(self.RX)
+        self.Radio.closeStream(self.RX)
+        self.Radio.closeStream(self.TX)
 
 
-    def get(self):
-        '''
-        Get the lime sdr device plugged into this device
+    # Start streams and spawn read thread
+    def start(self):
+        # setup streams
+        self.RX = self.Radio.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, [self.RX_Channel])
+        self.TX = self.Radio.setupStream(SOAPY_SDR_TX, SOAPY_SDR_CF32, [self.TX_Channel])
 
-        Return:
-            Limesdr Device Object or None
-        '''
-        try:
-            self.Radio = SoapySDR.Device(dict(driver="lime"))
-        except Exception as e:
-            self.Radio = None
+        # Activate read stream
+        #self.Radio.activateStream(self.RX)
+        self.Radio.activateStream(self.TX)
+
+        # let things "settle" (FPGA is a thing)
+        time.sleep(1)
+
+        # Start read loop on new thread
+        #threading.Thread(target=self.__read_loop).start()

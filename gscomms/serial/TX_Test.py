@@ -6,20 +6,18 @@
 # This file will handle testing the serial class
 #
 
-from Device import *
-from Resampler import Resampler
+from Serial import *
 import time
-import matplotlib.pyplot as plt
-import numpy as np
 import os
-from Modulation import Modulation
+from Modulation import *
+import matplotlib.pyplot as plt
 
 #-------------------------------------------------------------------------------
 # Configuration
 #-------------------------------------------------------------------------------
 
 rx_sample_rate = 4e6 # Freqency at which the radio samples waves
-freqency       = 1e6 # Freqency at which the radio will read
+freqency       = 915e6 # Freqency at which the radio will read
 sample_size    = int(4e6) # Number of data points to collect
 num_data       = 100 # Number of data points to be displayed on the graph
 
@@ -62,16 +60,20 @@ plt.ylabel('Normalized Amplitude')
 #-------------------------------------------------------------------------------
 # Test Mod and demod
 #-------------------------------------------------------------------------------
-mod = Modulation(freqency,rx_sample_rate)
-s = mod.encode("01001111")
+'''
+
+mod = Modulation(freqency,rx_sample_rate,1024)
+s = mod.encode("11100110001011")
                 #010011001
+                #01001111
                 #01001111
                 #01001111
                 #01001111
                 #01001111
 print(mod.decode(s))
 
-
+#'''
+'''
 #-------------------------------------------------------------------------------
 # Display data points
 #-------------------------------------------------------------------------------
@@ -85,7 +87,36 @@ plt.xlabel('Time (us)')
 plt.ylabel('Normalized Amplitude')
 
 plt.show()
+'''
+'''
+mod = Modulation(freqency,rx_sample_rate)
 
+test = np.zeros(shape=60)
+
+t = np.concatenate((test, mod.encode("1011")))
+
+t = mod.decode(t)
+
+print(t)
+
+'''
+#'''
+s = Serial(freqency,freqency,0,0,20,20)
+s.connect()
+
+s.tx("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+
+s.disconnect()
+
+'''
+'''
+#plt.plot(np.arange(len(arr)),np.array(arr))
+#plt.show()
+
+#print(arr)
+
+
+#'''
 
 # End program
 os._exit(1)
