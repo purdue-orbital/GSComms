@@ -8,7 +8,7 @@ options:
     description: ''
     gen_cmake: 'On'
     gen_linking: dynamic
-    generate_options: qt_gui
+    generate_options: no_gui
     hier_block_src_path: '.:'
     id: tx
     max_nouts: '0'
@@ -44,65 +44,26 @@ blocks:
     coordinate: [184, 12]
     rotation: 0
     state: enabled
-- name: blocks_file_source_0
-  id: blocks_file_source
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
   parameters:
     affinity: ''
     alias: ''
-    begin_tag: pmt.PMT_NIL
+    amp: '1'
     comment: ''
-    file: ./out.txt
-    length: '0'
+    freq: '1000'
     maxoutbuf: '0'
     minoutbuf: '0'
     offset: '0'
-    repeat: 'True'
-    type: byte
-    vlen: '1'
+    phase: '0'
+    samp_rate: samp_rate
+    type: complex
+    waveform: analog.GR_COS_WAVE
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [79, 220]
-    rotation: 0
-    state: enabled
-- name: blocks_stream_to_tagged_stream_0
-  id: blocks_stream_to_tagged_stream
-  parameters:
-    affinity: ''
-    alias: ''
-    comment: ''
-    len_tag_key: '"packet_len"'
-    maxoutbuf: '0'
-    minoutbuf: '0'
-    packet_len: '9'
-    type: byte
-    vlen: '1'
-  states:
-    bus_sink: false
-    bus_source: false
-    bus_structure: null
-    coordinate: [293, 228]
-    rotation: 0
-    state: true
-- name: digital_gfsk_mod_0
-  id: digital_gfsk_mod
-  parameters:
-    affinity: ''
-    alias: ''
-    bt: '0.35'
-    comment: ''
-    log: 'False'
-    maxoutbuf: '0'
-    minoutbuf: '0'
-    samples_per_symbol: '2'
-    sensitivity: '1.0'
-    verbose: 'False'
-  states:
-    bus_sink: false
-    bus_source: false
-    bus_structure: null
-    coordinate: [551, 223]
+    coordinate: [153, 229]
     rotation: 0
     state: true
 - name: osmosdr_sink_0
@@ -363,14 +324,12 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [712, 273]
+    coordinate: [585, 200]
     rotation: 0
     state: true
 
 connections:
-- [blocks_file_source_0, '0', blocks_stream_to_tagged_stream_0, '0']
-- [blocks_stream_to_tagged_stream_0, '0', digital_gfsk_mod_0, '0']
-- [digital_gfsk_mod_0, '0', osmosdr_sink_0, '0']
+- [analog_sig_source_x_0, '0', osmosdr_sink_0, '0']
 
 metadata:
   file_format: 1

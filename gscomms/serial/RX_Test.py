@@ -19,7 +19,8 @@ s.connect()
 
 time.sleep(1)
 
-arr = s.rx()
+while True:
+    arr = s.rx()
 
 print(arr)
 

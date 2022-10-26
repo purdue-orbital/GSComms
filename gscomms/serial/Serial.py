@@ -42,22 +42,20 @@ class Serial(object):
         c = np.array(list(data))
         c.tofile("out.txt")
         os.system("python3 tx.py")
+        os.system("\n")
 
     def rx(self):
         np.set_printoptions(threshold=600000)
-        print("Reading...")
+
+        os.system("python3 rx.py > blank.txt")
+        os.system("\n")
         f = np.fromfile(open("in.txt"), dtype=np.uint8)
-        print("Printing...")
         out = np.transpose(((f != 0) & (f != 255)).nonzero())
-        hold = (f[out[0][0] : out[0][0] + 6000])
-
-        m = 8
-        a = (((hold[:,None] & (1 << np.arange(m)))) > 0).astype(int)
-        b = ''.join(''.join('%d' %x for x in y) for y in a)
-
-        file = open("bin.txt","w+")
-        file.write(b)
-        file.close()
+        try:
+            hold = f[out[0][0]]
+            print("Yep!")
+        except Exception as e:
+            print("Nope!")
 
     def get_debug(self):
         pass
