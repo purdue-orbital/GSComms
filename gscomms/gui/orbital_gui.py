@@ -1,13 +1,14 @@
-import atexit
 import os
-import signal
 from flask import Flask, send_from_directory, abort as response_abort
 
-from common.dispatcher import Dispatcher
+from common.dispatcher import AckPing, subscribe_station, subscribe_radio
 from gs.gs import GroundStation
+from ws.ws import WsPollable
 
 app = Flask(__name__)
 gs = None
+radio = None
+ack = None
 
 # Path for our main Svelte page
 @app.route("/")
@@ -69,7 +70,12 @@ def map_token():
     return {'token': os.environ['MAPBOX_TOKEN']}
 
 if __name__ == '__main__':
-    Dispatcher().start()
-    gs = GroundStation()
+    if radio is None or ack is None:
+        ack = AckPing(send_pings=True)
+        subscribe_station(ack.rx, ack.command_set)
+        radio = WsPollable("ws://127.0.0.1:8081")
+        subscribe_radio(radio)
+        gs = GroundStation()
     app.run(port=8080, debug=True)
-    Dispatcher().stop()
+    radio.stop()
+    ack.stop()

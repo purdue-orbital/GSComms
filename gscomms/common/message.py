@@ -93,4 +93,7 @@ class Message(object):
         #
 
         # hybrid of fixed and dynamic data
-        return str(self._command)+str(self._data)
+        return str(self.command)+str(self.data)
+
+    def to_string(self):
+        return f'Message: Command: {self.command} Data: {self.data}'

@@ -13,10 +13,10 @@ class LaunchStation:
         self.current_pressure = None
         self.last_other_data = None
 
-        Dispatcher().subscribe(self._on_message, {Command.ABORT, Command.CUT, Command.LAUNCH, Command.REQUEST, Command.OTHER})
+        Dispatcher().subscribe_station(self._on_message, {Command.ABORT, Command.CUT, Command.LAUNCH, Command.REQUEST, Command.OTHER})
 
     def die(self):
-        Dispatcher().unsubscribe(self._on_message, {Command.ABORT, Command.CUT, Command.LAUNCH, Command.REQUEST, Command.OTHER})
+        Dispatcher().unsubscribe_station(self._on_message, {Command.ABORT, Command.CUT, Command.LAUNCH, Command.REQUEST, Command.OTHER})
 
     def _on_message(self, msg: Message):
         if msg.command == Command.ABORT:

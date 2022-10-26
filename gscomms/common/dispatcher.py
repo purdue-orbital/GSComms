@@ -1,8 +1,8 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 import threading
-from time import sleep
 from .message import Message, Command
-from typing import Any, Union, Callable
+from typing import Optional, Set, Union, Callable
 from heapq import heappop, heappush
 
 @dataclass(order=True)
@@ -26,153 +26,65 @@ class _QueueItem:
         return self.msg.priority
 
 
-# Time for dispatcher threads to sleep (ms)
-THREAD_SLEEP_MS = 5
 
+_subscribed_stations: dict[Callable, Set[Command]] = {}
+_subscribed_radios: dict[object, list[_QueueItem]] = {}
 
-class SubscriberThreadPushException(Exception):
-    pass
+def subscribe_station(delegate: Callable, commands: Union[set, Command]):
+    """
+    Subscribes a delegate function to receive commands of the type `commands`
+    """
 
+    # If commands aren't already a set, make them one
+    if not isinstance(commands, set):
+        commands = {commands}
 
-class Dispatcher(object):
-    def __new__(cls):
-        """
-        Creates and manages a single instance of the Dispatcher class
-        """
-        
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(Dispatcher, cls).__new__(cls)
+    # If delegate is already registered, add commands; otherwise, set as new
+    if delegate in _subscribed_stations:
+            _subscribed_stations[delegate].update(commands)
+    else:
+        _subscribed_stations[delegate] = commands
 
-        return cls.instance
+def unsubscribe_station(delegate: Callable, commands: Union[set, Command]):
+    """
+    Unsubscribes the given delegate function from the commands of the type `commands`
+    """
 
-    def __init__(self):
-        """
-        Initializes member variables
-        """
+    # If commands aren't already a set, make them one
+    if not isinstance(commands, set):
+        commands = {commands}
 
-        self._queue_lock = threading.Lock()
-        self._queue_out = []
-        self._queue_in = []
-        
-        self._set_lock = threading.Lock()
-        self._subscribed_delegates = {}
-        self._watched_watchables = set()
+    _subscribed_stations[delegate].difference_update(commands)
 
-        self._run_threads = True
-        self.start()
+    # Remove the delegate from the subscriptions if it's not subscribed to anything
+    if len(_subscribed_stations[delegate]) == 0:
+        _subscribed_stations.pop(delegate)
 
-    def start(self):
-        if self.is_running():
-            return
+# Subscribes a radio which calls a function to give the radio a way to pop its queue
+def subscribe_radio(delegate):
+    _subscribed_radios[delegate] = []
 
-        self._watch_thread_hnd = threading.Thread(target=self._watch_thread)
-        self._watch_thread_hnd.start()
-        self._sub_thread_hnd = threading.Thread(target=self._sub_thread)
-        self._sub_thread_hnd.start()
+    def pop() -> Optional[Message]:
+        if len(_subscribed_radios[delegate]) == 0:
+            return None
+        val = heappop(_subscribed_radios[delegate]).msg
+        return val
 
-    def is_running(self) -> bool:
-        if not (hasattr(self, '_watch_thread_hnd') and hasattr(self, '_sub_thread_hnd')):
-            return False
+    delegate.on_subscribed(pop)
 
-        return self._watch_thread_hnd.is_alive() or self._sub_thread_hnd.is_alive()
+def unsubscribe_radio(delegate):
+    _subscribed_radios.pop(delegate)
 
-    def stop(self):
-        self._run_threads = False
-        self._watch_thread_hnd.join()
-        self._sub_thread_hnd.join()
+def push_radios(message: Message):
+    """
+    Pushes a message to all radios
+    """
+    for (_, queue) in _subscribed_radios.items():
+        heappush(queue, _QueueItem(message))
 
-    # Manages the watcher thread
-    def _watch_thread(self):
-        while self._run_threads:
-            with self._queue_lock:
-                # Check output queue and write if necessary
-                message = heappop(self._queue_out).msg if len(self._queue_out) > 0 else None
-
-                with self._set_lock:
-                    for watchable in self._watched_watchables:
-                        if message is not None:
-                            watchable.tx(message)
-                        # Check pollables and write to input if necessary
-                        if msg := watchable.rx():
-                            heappush(self._queue_in, _QueueItem(msg))
-
-            sleep(THREAD_SLEEP_MS / 1000)
-
-    # Manages the subscriber thread
-    def _sub_thread(self):
-        while self._run_threads:
-            with self._queue_lock:
-                if len(self._queue_in) == 0:
-                    continue
-
-                message = heappop(self._queue_in).msg
-                with self._set_lock:
-                    for (delegate, _) in filter(lambda kv_pair: message.command in kv_pair[1], self._subscribed_delegates.items()):
-                        if ret := delegate(message):
-                            if not isinstance(ret, list):
-                                ret = [ret]
-                            for item in ret:
-                                heappush(self._queue_out, _QueueItem(item))
-            sleep(THREAD_SLEEP_MS / 1000)
-
-    def subscribe(self, delegate: Callable, commands: Union[set, Command]):
-        """
-        Subscribes a delegate function to receive commands of the type `commands`
-        """
-
-        # If commands aren't already a set, make them one
-        if not isinstance(commands, set):
-            commands = {commands}
-
-        # If delegate is already registered, add commands; otherwise, set as new
-        with self._set_lock:
-            if delegate in self._subscribed_delegates:
-                self._subscribed_delegates[delegate].update(commands)
-            else:
-                self._subscribed_delegates[delegate] = commands
-
-    def unsubscribe(self, delegate: Callable, commands: Union[set, Command]):
-        """
-        Unsubscribes the given delegate function from the commands of the type `commands`
-        """
-
-        # If commands aren't already a set, make them one
-        if not isinstance(commands, set):
-            commands = {commands}
-
-        with self._set_lock:
-            self._subscribed_delegates[delegate].difference_update(commands)
-
-            # Remove the delegate from the subscriptions if it's not subscribed to anything
-            if len(self._subscribed_delegates[delegate]) == 0:
-                del self._subscribed_delegates[delegate]
-
-    def push(self, message: Message):
-        """
-        Pushes a message to all watched watchables
-        """
-
-        if threading.current_thread() == self._sub_thread_hnd:
-            raise SubscriberThreadPushException()
-
-        with self._queue_lock:
-            heappush(self._queue_out, _QueueItem(message))
-
-    def watch(self, pollable):
-        """
-        Registers a pollable item to be polled for messages
-        """
-
-        with self._set_lock:
-            self._watched_watchables.add(pollable)
-
-    def unwatch(self, pollable):
-        """
-        Removes a pollable item from the watch list
-        """
-
-        with self._set_lock:
-            self._watched_watchables.remove(pollable)
+def push_stations(message: Message):
+    for (delegate, _) in filter(lambda kv_pair: message.command in kv_pair[1], _subscribed_stations.items()):
+        delegate(message)
 
 
 PING_TIME_MS = 30_000
@@ -183,7 +95,9 @@ PING_TIME_MS = 30_000
 # stop must be called before program ends to stop timer
 class AckPing:
     def __init__(self, send_pings: bool) -> None:
-        self.timer = threading.Timer(PING_TIME_MS / 1000, lambda: Dispatcher().push(Message(Command.PING))) if send_pings else None
+        self.timer = threading.Timer(PING_TIME_MS / 1000, lambda: push_radios(Message(Command.PING))) if send_pings else None
+        if timer := self.timer:
+            timer.start()
 
     def rx(self, message: Message):
         if message.command == Command.PING:
@@ -195,6 +109,7 @@ class AckPing:
         if timer := self.timer:
             timer.cancel()
 
+    @property
     def command_set(self) -> set:
         """
         Commands to be passed as the second argument of the subscribe function
