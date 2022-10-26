@@ -21,6 +21,8 @@ class Serial(object):
 
     """
 
+    nope_counter = 0
+
     # Serial is a sigleton (Only has one instance of itself)
     def __new__(self,rx_freqency,tx_freqency,rx_channel,tx_channel,rx_gain,tx_gain):
         if not hasattr(self, 'instance'):
@@ -45,17 +47,21 @@ class Serial(object):
         os.system("\n")
 
     def rx(self):
-        np.set_printoptions(threshold=600000)
-
         os.system("python3 rx.py > blank.txt")
         os.system("\n")
         f = np.fromfile(open("in.txt"), dtype=np.uint8)
         out = np.transpose(((f != 0) & (f != 255)).nonzero())
         try:
             hold = f[out[0][0]]
-            print("Yep!")
+
+            nope_counter += 1
+
+            if nope_counter == 180:
+                return True
         except Exception as e:
-            print("Nope!")
+            pass
+
+        return False
 
     def get_debug(self):
         pass
