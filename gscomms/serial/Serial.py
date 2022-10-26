@@ -53,15 +53,13 @@ class Serial(object):
         out = np.transpose(((f != 0) & (f != 255)).nonzero())
         try:
             hold = f[out[0][0]]
-
+            return False
+        except Exception as e:
             nope_counter += 1
 
             if nope_counter == 180:
                 return True
-        except Exception as e:
-            pass
 
-        return False
 
     def get_debug(self):
         pass
