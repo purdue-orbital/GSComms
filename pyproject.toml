@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gscomms"
+version = "0.0.1"
+description = "2022+ Ground station software using a LimeSDR-based radio system"
+readme = "README.md"
+authors = [{name = "Purdue Orbital", email = "porbital@purdue.edu"}]
+urls = {Source = "https://github.com/purdue-orbital/GSComms"}
+license = {text = "License :: OSI Approved :: BSD License"}
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+  "Flask~=2.2.2",
+  "numpy~=1.23.4",
+  "matplotlib~=3.6.1",
+  "websocket-client~=1.4.1"  # TODO: Check to make sure this is correct as it is non-standard | used in ``gscomms.ws.ws`` | traditional choice is ``websockets``
+  # TODO: Missing package ``SoapySDR``
+  # TODO: Missing package ``soapy_log_handle``
+  # TODO: Missing package ``osmodir``
+  # TODO: Missing package ``gnuradio``
+]
+
+[project.optional-dependencies]
+dev = [
+  "black>=22.10.0",
+  "isort>=5.10.1",
+  "pytest>=7.2.0",
+]
+
+[project.scripts]
+gscomms = "gscomms.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gscomms*"]
+exclude = []
+namespaces = true
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+src_paths = [
+  "gscomms",
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+  "tests",
+]
