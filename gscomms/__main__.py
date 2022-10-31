@@ -1,7 +1,7 @@
-def main():
+def main() -> int:
     print("GSComms Entrypoint Activated!!")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
-    raise SystemExit
+    raise SystemExit(main())
