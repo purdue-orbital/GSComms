@@ -1,65 +1,73 @@
 #
-# Serial.py
+# File: Serial.py
 #
-# Author: Nicholas Ball
+# Author(s): Nicholas Ball
 #
-# This file is used as the interface into handling serial communication to and
+# Description: This file will be directly interfaced for communication to and
 # from the radio
 #
-from Device import *
-import numpy as np
-import os
+import Device
 from Modulation import *
-import threading
 
+
+Frequency  = int(915e6)
+Channel    = 0
+Gain       = 64
+SampleRate = int(32e3)
+
+counter = 0
 
 class Serial(object):
-    """
+    """Serial is the interface for sending and listening for radio transmissions"""
 
-    Serial is the heart of orbital coms and the 'hypervisor' of all things to
-    with the radio such as (de)mod, encryption, and much more!
+    def __init__(self):
+        super(Serial, self).__init__()
+        self.Device = Device.Device()
 
-    """
+    def TX(self,data):
+        '''
+        Pass a string to be transmitted from the radio
+        '''
+        # add SOF and EOF to string
+        #data = "<SOF>"+data+"<EOF>"
+        #data = "1"
 
-    nope_counter = 0
+        # string to ascii values
+        #asciis = [ord(char) for char in data]
 
-    # Serial is a sigleton (Only has one instance of itself)
-    def __new__(self,rx_freqency,tx_freqency,rx_channel,tx_channel,rx_gain,tx_gain):
-        if not hasattr(self, 'instance'):
-            # Set instance
-            self.instance = super(Serial, self).__new__(self)
+        # Ascii to binary
+        #bin = [str(np.binary_repr(ascii, width=8)) for ascii in asciis]
 
-        return self.instance
+        #bin = np.array(list(''.join(bin)))
+        #bin = bin.astype(int)
+        #print(''.join(map(str, bin)))
 
 
-    # This will put radio into standby and look for a radio and will hold the
-    # thread till it gets a connection with another radio
-    def connect(self):
-        pass
+        # Modulate data
+        bin = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1])
+        out = Mod(bin,Frequency)
 
-    def disconnect(self):
-        pass
+        self.Device.TX(out)
 
-    def tx(self,data):
-        c = np.array(list(data))
-        c.tofile("out.txt")
-        os.system("python3 tx.py")
-        os.system("\n")
+    def RX(self):
+        '''
+        This will return all collected data that was transmitted
+        '''
 
-    def rx(self):
-        os.system("python3 rx.py > blank.txt")
-        os.system("\n")
-        f = np.fromfile(open("in.txt"), dtype=np.uint8)
-        out = np.transpose(((f != 0) & (f != 255)).nonzero())
-        try:
-            hold = f[out[0][0]]
+        # Demod collected data
+        out = Demod(self.Device.RX())
+
+        # if a transmission was not detected, increase counter
+        if not(1 in out):
+            counter += 1
+        else:
+            counter = 0
+
+        # after 5 minutes of no connection, return true
+        if counter >= 300:
+            return True
+        else:
             return False
-        except Exception as e:
-            nope_counter += 1
-
-            if nope_counter == 180:
-                return True
 
 
-    def get_debug(self):
-        pass
+        #return (''.join(map(str, out)))
