@@ -7,7 +7,7 @@
 # read from to create data over time
 #
 
-import Device
+from . import Device
 import threading
 import time
 import numpy as np

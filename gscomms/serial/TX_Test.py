@@ -6,10 +6,10 @@
 # This file will handle testing the serial class
 #
 
-from Serial import *
+from .Serial import *
 import time
 import os
-from Modulation import *
+from .Modulation import *
 import matplotlib.pyplot as plt
 
 #-------------------------------------------------------------------------------

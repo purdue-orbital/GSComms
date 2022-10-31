@@ -3,11 +3,11 @@
 #   data to and from the orbital radio
 #
 
-import mp
+from . import mp
 from enum import Enum
 import time
-import common.message as message
-from logging import Log
+from ..common import message as message
+from .logging import Log
 
 class Event(Enum):
     LOCATION    = 0

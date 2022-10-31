@@ -6,10 +6,10 @@
 # This file is used as the interface into handling serial communication to and
 # from the radio
 #
-from Device import *
+from .Device import *
 import numpy as np
 import os
-from Modulation import *
+from .Modulation import *
 import threading
 
 
