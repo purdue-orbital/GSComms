@@ -39,7 +39,7 @@ class StateStore {
             return that;
         });
 
-        const res = await fetch('/launch', {'method': 'POST'});
+        const res = await fetch('/abort', {'method': 'POST'});
 
         if (res.ok) {
             this._update((that: StateStore) => {
