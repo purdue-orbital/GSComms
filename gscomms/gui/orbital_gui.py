@@ -1,9 +1,9 @@
 import os
 from flask import Flask, send_from_directory, abort as response_abort
 
-from common.dispatcher import AckPing, subscribe_station, subscribe_radio
-from gs.gs import GroundStation
-from ws.ws import WsPollable
+from ..common.dispatcher import AckPing, subscribe_station, subscribe_radio
+from ..gs.gs import GroundStation
+from ..ws.ws import WsPollable
 
 app = Flask(__name__)
 gs = None

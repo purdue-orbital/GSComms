@@ -1,8 +1,8 @@
-import serial
-import mp
+from . import serial
+from . import mp
 from enum import Enum
 import time
-from logging import Log
+from .logging import Log
 
 class Event(Enum):
     ABORT       = 0

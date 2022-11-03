@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
-from common.dispatcher import subscribe_station, unsubscribe_station, push_radios
-from common.message import Command, Message
+from ..common.dispatcher import subscribe_station, unsubscribe_station, push_radios
+from ..common.message import Command, Message
 
 
 class GroundStation:

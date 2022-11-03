@@ -3,13 +3,13 @@
 #
 
 # import heap queue for ease of handling in and bout bound communication
-from heap import *
+from .heap import *
 
 # import messages
-from common.message import *
+from ..common.message import *
 
 # import seral manager
-import serial
+from . import serial
 
 # ------------------------------------------------------------------------------
 # Message Proccesor Class

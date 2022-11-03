@@ -37,7 +37,7 @@ def blank():
 
 import gscomms.ls.ls_old as ls_old
 import threading
-from logging import Log
+from gscomms.ls.logging import Log
 
 l = ls_old.ls(True)
 

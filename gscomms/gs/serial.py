@@ -5,10 +5,10 @@
 # Soapy is the program we use for serial communication to and from the radio
 import SoapySDR
 from SoapySDR import *
-from heap import *
+from .heap import *
 
 # import message class
-from common.message import *
+from ..common.message import *
 
 # import time for sleep
 from time import sleep

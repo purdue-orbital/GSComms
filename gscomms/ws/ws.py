@@ -3,8 +3,8 @@ from time import sleep
 from typing import Callable
 import websocket
 
-from common.message import Message
-from common import dispatcher
+from ..common.message import Message
+from ..common import dispatcher
 
 
 class WsPollable:

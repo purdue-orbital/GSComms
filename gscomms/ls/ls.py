@@ -1,5 +1,5 @@
-from common.message import Command, Message
-from common.dispatcher import Dispatcher
+from ..common.message import Command, Message
+from ..common.dispatcher import Dispatcher
 
 
 class LaunchStation:
