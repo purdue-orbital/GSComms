@@ -1,6 +1,7 @@
 # import Enum for enumerating commands
-from enum import Enum
+from enum import IntEnum
 from typing import Any, Optional, Union
+from json import dumps, loads
 
 # ------------------------------------------------------------------------------
 # Command Enums and Quick Conversions
@@ -8,7 +9,7 @@ from typing import Any, Optional, Union
 
 # Values with the lowest number will have the highest priority
 # Enumerated values of launch commands by priority order
-class Command(Enum):
+class Command(IntEnum):
     ABORT       = 0
     CUT         = 1
     LAUNCH      = 2
@@ -75,14 +76,16 @@ class Message(object):
 
     # deserialize message into this object
     @classmethod
-    def deserialize(cls, data):
+    def deserialize(cls, data: str):
         # get command type
-        command = Command(int(data[0]))
+        arr = data.split('{')
 
-        # get data
-        data = data[1::]
+        cmd= arr[0]
+        payload = arr[1] if len(arr) > 1 else None
 
-        return Message(command, data)
+        command = Command(int(cmd))
+
+        return Message(command, loads(payload) if payload is not None else None)
 
     # serialize communication for communication
     def serialize(self):
@@ -93,7 +96,7 @@ class Message(object):
         #
 
         # hybrid of fixed and dynamic data
-        return str(self.command)+str(self.data)
+        return str(self.command.value) + (dumps(self.data) if self.data is not None else '')
 
     def to_string(self):
         return f'Message: Command: {self.command} Data: {self.data}'
