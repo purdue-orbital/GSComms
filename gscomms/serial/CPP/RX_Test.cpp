@@ -1,27 +1,41 @@
 #include <iostream>
 #include <math.h>
 #include "Lime/Device.cpp"
+#include "QOL/viterbi.cpp"
+#include "QOL/math.hpp"
+
 //#include "Hackrf/Device.cpp"
+
 #include "Modulation/BPSK.h"
 
 
 
 
 int main(){
-  double freqency = 916e6;
-  double sample_rate = 32e3;
   std::vector<IQ> out = {};
 
-  out = BPSK::Mod(std::string("000101000"),sample_rate,freqency);
+  auto codec = ViterbiCodec(3,{7,5});
 
+  /**/
   Device d;
 
   while(true)
   {
+    // collect
     d.RX(&out,1000000);
-    std::cout<<out.size()<<std::endl;
-    std::cout<<BPSK::Demod(out)<<std::endl;
+
+    // demodulate
+    auto data = BPSK::Demod(out);
+
+
+    if(data.size() > 0)
+    {
+      // correct any errors
+      std::cout<<codec.Decode(data)<<std::endl;
+    }
+
   }
+  /**/
 
 
 

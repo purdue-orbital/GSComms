@@ -6,8 +6,6 @@ This header file will preform BPSK on a set of data
 #include <math.h>
 #include <vector>
 
-int Margin = 100;
-
 #ifndef BPSK_H
 #define BPSK_H
 
@@ -16,48 +14,52 @@ public:
     BPSK();
     static std::vector<IQ> Mod(std::string bin,double sample_rate,double freqency)
     {
-      std::vector<IQ> out = {};
+      std::vector<IQ> toReturn = {};
 
-      //loop through bin and modulate values
-      for(int i = 0; i != bin.length();i++)
+      // bpsk removes the first number so we add it back here
+      bin = "0"+bin;
+
+      // calculate phi
+      double phi = 2 * M_PI * freqency;
+
+      // make a basic, continous wave
+      for(int i = 0; i != bin.size();i++)
       {
-        double offset = bin[i] == '1';
+        // create IQ data
+        IQ temp(sin(phi * (i / sample_rate) + ((bin[i] == '1') * M_PI)),cos(phi * (i / sample_rate) + ((bin[i] == '1') * M_PI)));
 
-        //loop through bin and modulate values
-        for(int i = 0; i != Margin;i++)
-        {
-          double phi = 2 * M_PI * freqency * (i / sample_rate);
-          out.push_back(IQ(cos(phi + (3.14 * offset)),sin(phi + (3.14 * offset))));
-        }
+        // add IQ data point to wave
+        toReturn.push_back(temp);
       }
-      return out;
+
+      return toReturn;
     }
 
     static std::string Demod(std::vector<IQ> bin)
     {
-      double diff  = 0;
-      std::string out = "";
-      bool one = true;
+      std::string toReturn = "";
+      bool one = false;
 
-      // find the difference of adjust phases and build binary
-      for(int i = 0; i <= bin.size()-1;i++)
-      {
-        //flip bits when the phases are about 0 in differnce
-        if(bin[i].PhaseShift(bin[i+1]) > 2) one = !one;
+      for(int i = 1; i != bin.size();i++){
+        // Calculate distance
+        double x = (bin[i].I - bin[i-1].I) * (bin[i].I - bin[i-1].I);
+        double y = (bin[i].Q - bin[i-1].Q) * (bin[i].Q - bin[i-1].Q);
+        double distance = sqrt(x + y);
 
-        //add bit to string of nums
-        if(one) out += "1";
-        else out += "0";
+        //std::cout<<bin[i].Amplitude()<<std::endl;
+
+        // if distance is greater than 1, flip value
+        if(bin[i].Amplitude() > 0.3)
+        {
+          if(distance >= 0.5) one = !one;
+          toReturn += std::to_string((int)one);
+        }
+
+        //std::cout<<distance<<std::endl;
+
       }
 
-      std::string hold = "";
-      // only use every margin number of bits
-      for(int i = 0; i <= out.length();i += Margin)
-      {
-        hold += out[i];
-      }
-
-      return hold;
+      return toReturn;
     }
 
 

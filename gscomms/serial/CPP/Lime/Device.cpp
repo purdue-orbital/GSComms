@@ -9,6 +9,7 @@
 #include <cstring>
 #include <thread>
 #include "Device.h"
+#include "../QOL/math.hpp"
 
 // Close the connection
 bool __Close__ = false;
@@ -29,7 +30,7 @@ void Device::Serial_Hack()
   bandwidth.step = 1;
 
   // Open radio and initlize it
-  if(LMS_Open(&Radio, list[0], NULL)) std::cout<<"Error opening radio! (Is the radio plugged in?)";
+  if (LMS_Open(&Radio, list[0], NULL)) std::cout<<"Error opening radio! (Is the radio plugged in?)";
   if (LMS_Init(Radio) != 0) std::cout<<"Error initilizing radio! (Is the radio responsive?)";
 
   //setup tx
@@ -47,13 +48,18 @@ void Device::Serial_Hack()
   if (LMS_SetupStream(Radio, &RX_Stream) != 0) std::cout<<"Error setting up RX Stream!";
 
 
+
+  // set sample rate
+  if(LMS_SetSampleRate(Radio,CalculateSampleRate(915e6),0) != 0) std::cout<<"Error setting sample rate!";
+
+
   LMS_StartStream(&RX_Stream);
   LMS_StartStream(&TX_Stream);
 
 
   //calibrate
-  LMS_Calibrate(Radio, LMS_CH_TX, 0, 10e6, 0);
-  LMS_Calibrate(Radio, LMS_CH_RX, 1, 10e6, 0);
+  LMS_Calibrate(Radio, LMS_CH_TX, 0, 1000, 0);
+  LMS_Calibrate(Radio, LMS_CH_RX, 1, 1000, 0);
 
   __Connected__ = true;
 
@@ -76,7 +82,7 @@ Device::Device()
   TX_Stream.channel = 0;                         //channel number
   TX_Stream.fifoSize = 1024 * 1024;              //fifo size in samples
   TX_Stream.throughputVsLatency = 0.5;             //0 min latency, 1 max throughput
-  TX_Stream.dataFmt = lms_stream_t::LMS_FMT_I12; //doubleing point samples
+  TX_Stream.dataFmt = lms_stream_t::LMS_FMT_I16; //doubleing point samples
   TX_Stream.isTx = true;                         //TX channel
 
 
@@ -85,7 +91,7 @@ Device::Device()
   RX_Stream.channel = 1;                         //channel number
   RX_Stream.fifoSize = 1024 * 1024;              //fifo size in samples
   RX_Stream.throughputVsLatency = 0.5;             //0 min latency, 1 max throughput
-  RX_Stream.dataFmt = lms_stream_t::LMS_FMT_I12; //doubleing point samples
+  RX_Stream.dataFmt = lms_stream_t::LMS_FMT_I16; //doubleing point samples
   RX_Stream.isTx = false;                        //RX channel
 
 
@@ -122,10 +128,10 @@ bool Device::RX(std::vector<IQ>* RX_Buffer,int num_samples){
   int samplesRead;
 
   // create buffer
-  double buffer[num_samples * 2];
+  int16_t buffer[num_samples * 2];
 
   //Receive samples
-  samplesRead = LMS_RecvStream(&RX_Stream, buffer, num_samples, 0, 1000);
+  samplesRead = LMS_RecvStream(&RX_Stream, buffer, num_samples, 0, 100000000);
 
   //catch any errors
   if(samplesRead != num_samples)
@@ -136,19 +142,11 @@ bool Device::RX(std::vector<IQ>* RX_Buffer,int num_samples){
 
   //set the rx buffer
   for(int i = 0; i != num_samples; i++){
-    //adjust values
-    if(abs(buffer[2*i]) < 0.01 || buffer[2*i] > 4096)
-    {
-      buffer[2*i] = 0;
-    }
-
-    if(abs(buffer[2*i+1]) < 0.01 || buffer[2*i+1] > 4096)
-    {
-      buffer[2*i+1] = 0;
-    }
+    int vI = buffer[2*i];
+    int vQ = buffer[2*i+1];
 
     // normalize and send to array
-    RX_Buffer->push_back(IQ(buffer[2*i] / 4096,buffer[2*i+1] / 4096));
+    RX_Buffer->push_back(IQ(((double)vI / 32768),((double)vQ / 32768)));
   }
 
   return false;
@@ -163,15 +161,19 @@ bool Device::TX(std::vector<IQ>* TX_Buffer){
   int samples = TX_Buffer->size();
 
   // create buffer
-  double buffer[samples * 2];
+  int16_t buffer[samples * 2];
+
   for(int i = 0; i != samples; i++)
   {
-    buffer[2*i] = (*TX_Buffer)[i].I * 4096;
-    buffer[2*i+1] = (*TX_Buffer)[i].Q * 4096;
+    buffer[2*i] = ((*TX_Buffer)[i].I) * 32768;
+    buffer[2*i+1] = ((*TX_Buffer)[i].Q) * 32768;
   }
 
+  lms_stream_meta_t tx_metadata; //Use metadata for additional control over sample send function behavior
+  tx_metadata.flushPartialPacket = false; //do not force sending of incomplete packet
+
   //Send samples
-  LMS_SendStream(&TX_Stream, buffer, samples, 0, 1000);
+  LMS_SendStream(&TX_Stream, buffer, samples, &tx_metadata, 100000000);
 
   return false;
 }
