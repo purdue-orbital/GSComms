@@ -128,5 +128,15 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# remove test data
 *.txt
 .vscode
+*.cmake
+CMakeFiles/
+Makefile
+
+# except for cmake build files
+!CMakeLists.txt
+
+# remove test binary files
+*.test

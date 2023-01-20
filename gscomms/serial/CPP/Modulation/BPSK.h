@@ -12,7 +12,7 @@ This header file will preform BPSK on a set of data
 class BPSK {
 public:
     BPSK();
-    static std::vector<IQ> Mod(std::string bin,double sample_rate,double freqency)
+    static std::vector<IQ> Mod(std::string bin, double sample_rate, double freqency)
     {
       std::vector<IQ> toReturn = {};
 

@@ -13,11 +13,11 @@ class IQ {
     double Q;
 
     // Set vars individually
-    IQ(double i,double q)
-    {
-      I = i;
-      Q = q;
-    }
+    IQ(double i,double q){I = i; Q = q;}
+
+    IQ(const IQ &data){I = data.I; Q = data.Q;}
+
+    IQ(IQ *data){I = data->I; Q = data->Q;}
 
     // get amplitude of IQ
     double Amplitude(){
@@ -26,7 +26,7 @@ class IQ {
 
     // get the phase angle of IQ data from 0 to 2pi
     double Phase(){
-      return atan(Q / I);
+      return  (I / abs(I)) * atan(Q / I);
     }
 
     // This will return adjust values used to convert normilized data back to normal data
@@ -35,12 +35,18 @@ class IQ {
       return {I * num, Q * num};
     }
 
-    // calculate the phase shift given sample rate,freqency, and other IQ data
+    // calculate the phase shift
     double PhaseShift(IQ other_data){
-      return fabs(this->I - other_data.I) * (M_PI / 2);
+      return fabs(this->Phase() - other_data.Phase());
     }
 
-    //return an array of IQ data from a 2d array
+    // calculate the distance of two IQ points
+    double Distance(IQ other_data)
+    {
+      return sqrt(((this->I + other_data.I)*(this->I + other_data.I)) + ((this->Q + other_data.Q)*(this->Q + other_data.Q)));
+    }
+
+    // (DEPRECATED) return an array of IQ data from a 2d array
     static std::vector<IQ> from_array(double* arr,int size){
       //make array of IQ data
       std::vector<IQ> toReturn = {};

@@ -1,10 +1,14 @@
 /*
-This header file will preform BPSK on a set of data
+FSK is modulation method that varries the frequency of the transmission to create binary data
+
+EX: 101 -> higher frequency,base freqency,higher frequency
+
 */
 #include <string.h>
-#include "../QOL/IQ.h"
+#include <IQ.h>
 #include <math.h>
 #include <vector>
+#include <iostream>
 
 int Margin = 1;
 
@@ -18,73 +22,45 @@ public:
     {
       std::vector<IQ> out = {};
 
+      bin = "0000" + bin;
+
       //loop through bin and modulate values
       for(int i = 0; i != bin.length();i++)
       {
-        double offset = bin[i] == '1';
+        // calculate phi
+        double phi = 2 * M_PI * (freqency + (333 * (bin[i] == '1'))) * (i / sample_rate) + M_PI;
 
-        //loop through bin and modulate values
-        for(int k = 0; k != Margin;k++)
-        {
-          double phi = 2 * M_PI * (freqency + (10000 * offset)) * (( (Margin * i) + k) / sample_rate);
-          out.push_back(IQ(cos(phi),sin(phi)));
-        }
+        // make iq point
+        IQ temp(sin(phi),cos(phi));
+
+        // add to array
+        out.push_back(temp);
+
       }
       return out;
     }
 
-    static std::vector<std::string> Demod(std::vector<IQ> bin)
+    static std::string Demod(std::vector<IQ> bin)
     {
-      std::vector<std::string> toReturn = {};
-      std::vector<IQ> temp1 = {};
-      std::vector<std::vector<IQ>> temp2 = {bin};
+      std::string toReturn = "";
 
-      /*
-      // filter and breakup noise
-      for(int y = 0; y != bin.size();y++)
+      // we assume first two points are in sync with each other and is zero
+      double BaseDistance = bin[0].Distance(bin[1]);
+      auto _temp = "000010011001110001000111110101010";
+
+      bool one = false;
+
+      // loop through IQ points
+      for(int i = 1; i != bin.size()-1;i++)
       {
-        IQ check = bin[y];
+        auto diff = fabs(bin[i].Distance(bin[i+1]) - BaseDistance);
+        if(diff > 0.1) one = !one;
 
-        if(check.Amplitude() > 0.3){
-          temp1.push_back(check);
-        }else if(temp1.size() > 0){
-          temp2.push_back(temp1);
-          temp1 = {};
-        }
+        toReturn += std::to_string(one);
       }
 
-      if(temp1.size() > 0){
-          temp2.push_back(temp1);
-          temp1 = {};
-      }
-      */
 
-      //loop through each broken up segment
-      for(int y = 0; y != temp2.size();y++)
-      {
-        std::string out = "";
-
-        // find where the rate changes
-        for(int i = 0; i <= temp2[y].size()-1;i++)
-        {
-          //std::cout<< temp2[y][i].PhaseShift(bin[i+1]) <<std::endl;
-          //add bit to string of nums
-          if(bin[i].PhaseShift(temp2[y][i+1]) > 1) out += "1";
-          else out += "0";
-        }
-
-        std::string hold = "";
-
-        // only use every margin number of bits
-        for(int i = 0; i <= out.length();i += Margin)
-        {
-          hold += out[i];
-        }
-
-        toReturn.push_back(hold);
-      }
-
-      return toReturn;
+      return toReturn.substr(2);
     }
 
 

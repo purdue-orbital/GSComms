@@ -22,7 +22,7 @@ class Device {
 
   public:
 
-    Device ();
+    Device (double freqency);
 
     ~Device ();
 

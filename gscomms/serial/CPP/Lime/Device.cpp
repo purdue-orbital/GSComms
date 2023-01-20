@@ -19,8 +19,6 @@ bool __Connected__ = false;
 
 void Device::Serial_Hack()
 {
-  std::cout<<"Setting up!"<<std::endl;
-
   lms_info_str_t list[8];
   LMS_GetDeviceList(list);
 
@@ -30,27 +28,27 @@ void Device::Serial_Hack()
   bandwidth.step = 1;
 
   // Open radio and initlize it
-  if (LMS_Open(&Radio, list[0], NULL)) std::cout<<"Error opening radio! (Is the radio plugged in?)";
-  if (LMS_Init(Radio) != 0) std::cout<<"Error initilizing radio! (Is the radio responsive?)";
+  if (LMS_Open(&Radio, list[0], NULL)) throw "Error opening radio! (Is the radio plugged in?)";
+  if (LMS_Init(Radio) != 0) throw "Error initilizing radio! (Is the radio responsive?)";
 
   //setup tx
-  if (LMS_EnableChannel(Radio, LMS_CH_TX, 0, true) != 0) std::cout<<"Error starting channel! (Is the radio already opened?)";
-  if (LMS_SetLOFrequency(Radio, LMS_CH_TX, 0, 915e6) != 0) std::cout<<"Error setting freqency! (Is the freqency out of range?)";
-  if (LMS_SetNormalizedGain(Radio, LMS_CH_TX, 0, 5) != 0) std::cout<<"Error setting gain! (Is the gain out of range?)";
-  if (LMS_GetAntennaBW(Radio, LMS_CH_TX, 0, 0, &bandwidth) != 0) std::cout<<"Error setting bandwidth! (Is the bandwidth out of range?)";
-  if (LMS_SetupStream(Radio, &TX_Stream) != 0) std::cout<<"Error setting up TX Stream!";
+  if (LMS_EnableChannel(Radio, LMS_CH_TX, 0, true) != 0) throw "Error starting channel! (Is the radio already opened?)";
+  if (LMS_SetLOFrequency(Radio, LMS_CH_TX, 0, this->Freqency) != 0) throw "Error setting freqency! (Is the freqency out of range?)";
+  if (LMS_SetNormalizedGain(Radio, LMS_CH_TX, 0, 5) != 0) throw "Error setting gain! (Is the gain out of range?)";
+  if (LMS_GetAntennaBW(Radio, LMS_CH_TX, 0, 0, &bandwidth) != 0) throw "Error setting bandwidth! (Is the bandwidth out of range?)";
+  if (LMS_SetupStream(Radio, &TX_Stream) != 0) throw "Error setting up TX Stream!";
 
   //setup rx
-  if (LMS_EnableChannel(Radio, LMS_CH_RX, 1, true) != 0) std::cout<<"Error starting channel! (Is the radio already opened?)";
-  if (LMS_SetLOFrequency(Radio, LMS_CH_RX, 1, 915e6) != 0) std::cout<<"Error setting freqency! (Is the freqency out of range?)";
-  if (LMS_SetNormalizedGain(Radio, LMS_CH_RX, 1, 5) != 0) std::cout<<"Error setting gain! (Is the gain out of range?)";
-  if (LMS_GetAntennaBW(Radio, LMS_CH_RX, 1, 0, &bandwidth) != 0) std::cout<<"Error setting bandwidth! (Is the bandwidth out of range?)";
-  if (LMS_SetupStream(Radio, &RX_Stream) != 0) std::cout<<"Error setting up RX Stream!";
+  if (LMS_EnableChannel(Radio, LMS_CH_RX, 1, true) != 0) throw "Error starting channel! (Is the radio already opened?)";
+  if (LMS_SetLOFrequency(Radio, LMS_CH_RX, 1, this->Freqency) != 0) throw "Error setting freqency! (Is the freqency out of range?)";
+  if (LMS_SetNormalizedGain(Radio, LMS_CH_RX, 1, 5) != 0) throw "Error setting gain! (Is the gain out of range?)";
+  if (LMS_GetAntennaBW(Radio, LMS_CH_RX, 1, 0, &bandwidth) != 0) throw "Error setting bandwidth! (Is the bandwidth out of range?)";
+  if (LMS_SetupStream(Radio, &RX_Stream) != 0) throw "Error setting up RX Stream!";
 
 
 
   // set sample rate
-  if(LMS_SetSampleRate(Radio,CalculateSampleRate(915e6),0) != 0) std::cout<<"Error setting sample rate!";
+  if(LMS_SetSampleRate(Radio,CalculateSampleRate(this->Freqency),0) != 0) throw "Error setting sample rate!";
 
 
   LMS_StartStream(&RX_Stream);
@@ -75,7 +73,7 @@ void Device::Serial_Hack()
 }
 
 // Constructor
-Device::Device()
+Device::Device(double freqency) : Freqency(freqency)
 {
 
   //setup streams
@@ -136,7 +134,7 @@ bool Device::RX(std::vector<IQ>* RX_Buffer,int num_samples){
   //catch any errors
   if(samplesRead != num_samples)
   {
-    std::cout<<"Error reading data from radio! (Is the data being set correctly?)\n\tSamples Read: "<<samplesRead<<std::endl;
+    throw "Error reading data from radio! (Is the data being set correctly?)\n\tSamples Read: " + samplesRead;
     return true;
   }
 
